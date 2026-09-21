@@ -201,11 +201,11 @@
 | GET | `/dashboard/export/?year=&month=&horizon=` | 대시보드 CSV 다운로드 |
 | GET | `/monthly-report/export/?year=&month=&horizon=` | 월별 리포트 CSV 다운로드 |
 
-- `horizon`: 자금 수지 예측 개월 수 3~6, 기본 3 [A-31]
-- 미래 월·`month` 범위 밖은 400
-- 모든 계산은 `05-metrics.md`의 규칙을 따른다. 응답은 **계산 결과**만 담는다.
+- 모든 API는 관리자 전용이다. `year`, `month`는 필수 정수이며 `month`는 1~12, **현재(Asia/Seoul) 월 이하**여야 한다. 위반하면 400 `validation_error` [A-50]
+- `horizon`: 자금 수지 예측 개월 수 3~6, 생략하면 3. 범위 밖이거나 숫자가 아니면 400 [A-31]
+- 모든 계산은 `05-metrics.md`의 규칙을 따른다. 응답은 **계산 결과**만 담는다. 금액·수량·비율은 **반올림하지 않은** JSON number이고 계산 불가 값은 `null`이다 [A-36].
 
-### 8.1 응답 최상위 구조 (공통)
+### 8.1 응답 최상위 구조 (공통) [A-50]
 
 ```json
 {
@@ -217,7 +217,7 @@
     "has_warning": true
   },
   "cost_profit": { … },          // 종합 원가/이익률
-  "projects": [ … ],             // 프로젝트별 원가/이익률
+  "projects": { … },             // 프로젝트별 원가/이익률 (행 배열을 cumulative/month 로 감싼다)
   "trade": { … },                // 매입·매출·미수금
   "cash_forecast": { … },        // 자금 수지 예측
   "bep": { … },
@@ -228,10 +228,21 @@
 }
 ```
 
+- `data_status`는 **기준 월**(`month`) 기준이다. **활성 부서**만 대상이며 `sort_order` 순이다. `submitted_departments` = 기준 월에 `SUBMITTED`인 부서, `missing_departments` = 나머지, `has_warning` = `missing_departments`가 비어 있지 않음 [A-25].
+- 집계에는 삭제(비활성)된 부서의 과거 제출 데이터도 포함된다. `data_status`에는 나오지 않는다 [A-50].
+
 ### 8.2 대시보드 vs 월별 리포트의 차이
 
-- **대시보드**: 각 섹션은 `cumulative`(연초~기준 월) 값을 담고, 추가로 `trend`(1월~기준 월 월별 시계열 — 차트용)를 담는다.
+- **대시보드**: 각 섹션은 `cumulative`(연초~기준 월) 값을 담고, 차트가 필요한 섹션은 추가로 `trend`(1월~기준 월 월별 시계열)를 담는다.
 - **월별 리포트**: 각 섹션은 `month`(당월 단독) 값과 `cumulative` 값을 모두 담는다. `trend`는 없다.
+
+| 섹션 | 대시보드 | 월별 리포트 |
+|---|---|---|
+| `cost_profit`, `trade`, `production`, `orders`, `productivity` | `{ "cumulative": {…}, "trend": [ … ] }` | `{ "month": {…}, "cumulative": {…} }` |
+| `bep` | `{ "cumulative": {…} }` (trend 없음) | `{ "month": {…}, "cumulative": {…} }` |
+| `projects` | `{ "cumulative": [ 행… ] }` | `{ "month": [ 행… ], "cumulative": [ 행… ] }` |
+| `cash_forecast` | 단일 객체 (§8.4, 두 API 동일) | 동일 |
+| `goals` | 배열 (실적은 항상 누적 기준) | 동일 |
 
 섹션 예시 (`cost_profit`, 대시보드):
 ```json
@@ -243,16 +254,58 @@
   "trend": [ { "month": 1, "revenue": 80000000, "operating_profit": 15000000, "operating_margin": 18.8 } ]
 }
 ```
-나머지 섹션의 필드는 `05-metrics.md` §3의 지표 이름(snake_case)을 그대로 키로 사용한다. 계산 불가 값은 `null`.
 
 `goals` 섹션 예시:
 ```json
 "goals": [ { "metric_key": "REVENUE", "label": "매출액", "unit": "원",
              "target": 1200000000, "actual": 800000000, "achievement_rate": 66.7 } ]
 ```
-목표 미설정이면 `target: null, achievement_rate: null`.
+항상 `/goals/`와 같은 5개 지표가 같은 순서로 나온다. 목표 미설정이면 `target: null, achievement_rate: null`. 실적이 `null`이면 `actual: null, achievement_rate: null`.
 
-### 8.3 CSV 다운로드 [A-43]
+### 8.3 섹션별 필드 [A-50]
+
+`cumulative`/`month` 블록의 필드는 `05-metrics.md` §3의 지표 이름(snake_case) 그대로다. 그 외 규칙은 아래와 같다.
+
+| 섹션 | 블록 필드 | `trend` 점의 필드 (`month` 포함) |
+|---|---|---|
+| `cost_profit` | `revenue`, `material_cost`, `labor_cost`, `expense_cost`, `total_cost`, `gross_profit`, `sga_expense`, `operating_profit`, `gross_margin`, `operating_margin` | `month`, `revenue`, `operating_profit`, `operating_margin` |
+| `projects` (행) | `project_name`, `revenue`, `material_cost`, `labor_cost`, `expense_cost`, `total_cost`, `gross_profit`, `gross_margin` | — |
+| `trade` | `revenue`, `purchase_amount`, `collection_amount`, `receivable_balance`, `receivable_balance_as_of_month`, `receivable_ratio` | `month`, `revenue`, `purchase_amount`, `receivable_balance` |
+| `bep` | `variable_cost`, `fixed_cost`, `contribution_margin_ratio`, `bep_revenue`, `bep_achievement_rate` | — |
+| `production` | `production_qty`, `production_capacity`, `utilization_rate` | `month`, `production_qty`, `utilization_rate` |
+| `orders` | `order_received`, `order_backlog`, `order_backlog_as_of_month`, `pipeline_amount`, `pipeline_amount_as_of_month`, `pipeline_win_rate`, `pipeline_win_rate_as_of_month`, `weighted_pipeline` | `month`, `order_backlog` |
+| `productivity` | `headcount`, `headcount_as_of_month`, `revenue_per_head`, `operating_profit_per_head`, `production_per_head` | `month`, `revenue_per_head` |
+
+- **`_as_of_month`**: stock/rate 지표 `X`마다 형제 필드 `X_as_of_month`(정수 월 또는 `null`)가 함께 온다. `X`가 기준 월 값이면 기준 월, 이월된 값이면 값을 가져온 월이다. `cumulative`/`month` 블록에만 있고 `trend`에는 없다 (`05` §2).
+- **데이터 없음**: 그 기간(누적 1~기준 월 또는 당월)에 `SUBMITTED` 보고서가 하나도 없으면 블록의 **모든 값이 `null`**(`_as_of_month` 포함)이고 `projects`는 빈 배열이다. `trend`의 점도 같은 규칙이며 보고서가 없는 달은 `month`만 채워지고 나머지는 `null`이다 (`05` §1).
+- `trend`는 1월부터 기준 월까지 **매월 1개 점**(기준 월이 9월이면 9개)을 낸다.
+- `projects` 행은 `revenue` 내림차순, 같으면 `project_name` 오름차순이다.
+
+### 8.4 자금 수지 예측 `cash_forecast` [A-31, A-50]
+
+```json
+"cash_forecast": {
+  "horizon": 3,
+  "base_month": 9,
+  "base_cash": 120000000, "base_cash_as_of_month": 9,
+  "reference_months": [7, 8, 9],
+  "avg_inflow": 100000000, "avg_outflow": 150000000,
+  "history": [ { "month": 1, "cash_balance": 300000000 }, …, { "month": 9, "cash_balance": 120000000 } ],
+  "forecast": [
+    { "year": 2026, "month": 10, "inflow": 100000000, "outflow": 150000000,
+      "net_cash_flow": -50000000, "projected_cash": 70000000, "shortfall": false },
+    { "year": 2026, "month": 11, "inflow": 100000000, "outflow": 150000000,
+      "net_cash_flow": -50000000, "projected_cash": 20000000, "shortfall": false },
+    { "year": 2026, "month": 12, "inflow": 100000000, "outflow": 150000000,
+      "net_cash_flow": -50000000, "projected_cash": -30000000, "shortfall": true } ]
+}
+```
+- `history`: 1월~기준 월 매월 `{ month, cash_balance }`(차트의 실적선). 그 월에 값이 없으면 `cash_balance: null`이며 이월하지 않는다.
+- `forecast`: 항상 `horizon`개 행이며 기준 월 다음 달부터다. 12월을 넘으면 `year`가 다음 해가 된다.
+- 참조 기간에 제출 데이터가 없으면 `reference_months: []`, `avg_inflow`·`avg_outflow`는 `null`이고, `forecast` 각 행은 `year`·`month`만 채우고 나머지(`inflow`, `outflow`, `net_cash_flow`, `projected_cash`, `shortfall`)는 `null`이다. `base_cash`는 그대로 보고한다.
+- `base_cash`가 `null`이면 `projected_cash`·`shortfall`만 `null`이다.
+
+### 8.5 CSV 다운로드 [A-43]
 
 - `Content-Type: text/csv; charset=utf-8`, UTF-8 BOM 포함, `Content-Disposition: attachment; filename="dashboard_2026-09.csv"` (리포트는 `monthly-report_2026-09.csv`)
 - 열: `섹션,항목,구분,단위,값`

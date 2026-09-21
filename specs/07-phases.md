@@ -2,7 +2,7 @@
 
 > 각 Phase는 **작동하는 상태로 끝나야** 한다. Phase를 마치면 (1) 완료 기준 확인 → (2) README의 진행 현황 갱신 → (3) 변경된 스펙 반영 순서로 마무리한다.
 > 이 문서의 체크박스는 Phase 진행 중 Claude가 갱신한다. `[A-xx]`는 `99-assumptions.md` 참조.
-> **현재 상태: Phase 5 완료, Phase 6 시작 전**
+> **현재 상태: Phase 6 완료, Phase 7 시작 전**
 
 | Phase | 주제 | 결과물 |
 |---|---|---|
@@ -110,11 +110,12 @@
 
 **목표**: 입력 데이터로 지표를 자동 계산해 대시보드와 리포트에 표시한다.
 
-- [ ] `analytics` 계산 모듈 (순수 함수 중심): 집계(flow/stock/rate) → 8개 섹션 [05]
-- [ ] `/dashboard/`, `/monthly-report/` API [03 §8]
-- [ ] 미제출 경고 정보(`data_status`)
-- [ ] 화면: `/admin/dashboard`(KPI 카드 + Chart.js 차트), `/admin/report`(당월/누적 표) [04 §3.3~3.4]
-- [ ] 계산 불가 값 `-` 처리 [A-36]
+- [x] 착수 전: 03 §8·05의 응답 스키마 보강과 사용자 승인 [A-50]
+- [x] `analytics` 계산 모듈 (순수 함수 중심): 집계(flow/stock/rate) → 8개 섹션 [05]
+- [x] `/dashboard/`, `/monthly-report/` API [03 §8]
+- [x] 미제출 경고 정보(`data_status`)
+- [x] 화면: `/admin/dashboard`(KPI 카드 + Chart.js 차트), `/admin/report`(당월/누적 표) [04 §3.3~3.4]
+- [x] 계산 불가 값 `-` 처리 [A-36]
 
 **완료 기준**
 - 05 §5 검증 예제의 기대값이 테스트로 통과한다

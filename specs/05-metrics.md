@@ -12,6 +12,8 @@
 5. 분모가 0이거나 계산 조건을 만족하지 못하면 결과는 `null`(화면 `-`). 오류를 내지 않는다 [A-36]
 6. 결과 반올림은 **표시 단계**에서만 한다(금액 정수, 비율 소수 1자리). 계산 중간에는 반올림하지 않는다
 7. 비활성화(논리 삭제)된 항목의 과거 값도 연동 키가 있으면 계산에 포함한다 [A-06]
+8. 삭제(비활성)된 부서의 과거 `SUBMITTED` 데이터도 포함한다. 부서가 사라져도 과거 수치는 유지한다 [A-50]
+9. **데이터 없음**: 어떤 기간(누적 1~기준 월, 당월, `trend`의 한 달)에 `SUBMITTED` 보고서가 하나도 없으면 그 기간의 값은 **모두 `null`**이다(0이 아님). 보고서가 하나라도 있으면 flow 합계는 값이 없는 키를 0으로 계산한다 [A-50]
 
 ## 2. 지표 연동 키와 집계 유형 [A-07, A-26]
 
@@ -36,10 +38,11 @@
 
 집계 유형별 기간 값 계산:
 - **flow**: 기간(누적이면 1~기준 월, 당월이면 기준 월) 내 월별 합계를 더한다
-- **stock**: 기준 월의 값. 기준 월에 값이 없으면 기준 월 이전 중 **가장 최근에 값이 있는 월**의 값을 쓰고 응답에 `as_of_month`를 함께 준다. 같은 월에 여러 값(여러 부서 인원수 등)은 합산
+- **stock**: 기준 월의 값. 기준 월에 값이 없으면 기준 월 이전(같은 연도) 중 **가장 최근에 값이 있는 월**의 값을 쓰고 응답에 `<필드>_as_of_month`를 함께 준다(값이 있는 월이 없으면 값·`as_of_month` 모두 `null`). 같은 월에 여러 값(여러 부서 인원수 등)은 합산
 - **rate**: stock처럼 기준 월 값을 쓰되 같은 월 복수 값은 평균
+- stock은 시점 값이므로 월별 리포트의 **당월 열과 누적 열이 같은 값**이다(다만 기준 월에 제출된 보고서가 하나도 없으면 §1-9에 따라 당월 열은 전부 `null`).
 
-월별 시계열(`trend`)은 1월~기준 월 각 월을 “당월”로 계산한다(stock은 그 월의 값, 제출 데이터가 없는 월은 `null`).
+월별 시계열(`trend`)은 1월~기준 월 각 월을 “당월”로 계산한다. **stock은 그 월에 제출된 값만** 쓰고(이월하지 않음) 값이 없으면 `null`이다. 그 달에 `SUBMITTED` 보고서가 하나도 없으면 §1-9에 따라 그 점의 모든 값이 `null`이다. 그러므로 `trend`의 기준 월 점과 `cumulative`의 stock 값은 다를 수 있다.
 
 ## 3. 지표 정의 (응답 키 = snake_case 이름)
 
@@ -65,7 +68,8 @@
 
 ### 3.2 프로젝트별 원가/이익률 — `projects` [A-28]
 
-- `project_name`이 있는 값(프로젝트별형 항목)을 **프로젝트명별로** 묶어 아래를 계산한다. 배열로 반환, `revenue` 내림차순.
+- `project_name`이 있는 값(프로젝트별형 항목)을 **프로젝트명별로** 묶어 아래를 계산한다. 배열로 반환, `revenue` 내림차순(같으면 프로젝트명 오름차순).
+- 대상은 REVENUE·MATERIAL_COST·LABOR_COST·EXPENSE_COST 값뿐이다. 프로젝트명이 있어도 다른 연동 키의 값은 이 표에 쓰지 않는다. 기간에 제출 데이터가 없으면 빈 배열 [A-50].
 
 | 지표 | 공식 |
 |---|---|
@@ -93,7 +97,7 @@
 입력: 기준 월 M, 예측 개월 수 N (3~6, 기본 3).
 
 1. **기준 잔액** `base_cash` = CASH_BALANCE (stock, `as_of_month` 포함)
-2. **참조 기간** = M−2, M−1, M 중 `SUBMITTED` 데이터가 있는 달(같은 연도 안에서만. 1~2월 기준이면 1월부터). 없으면 전체 결과 `null`
+2. **참조 기간** = M−2, M−1, M 중 `SUBMITTED` 데이터가 있는 달(같은 연도 안에서만. 1~2월 기준이면 1월부터). 없으면 `avg_inflow`·`avg_outflow`와 예측 결과가 `null`(기준 잔액은 그대로 보고)
 3. 참조 기간의 월별 값으로 평균 계산:
    - `avg_inflow` = 평균( COLLECTION_AMOUNT )
    - `avg_outflow` = 평균( PURCHASE_AMOUNT + LABOR_COST + EXPENSE_COST + SGA_EXPENSE )
@@ -106,6 +110,7 @@
 5. 예측 월의 연도는 12월을 넘으면 다음 해로 넘어간다(표시용).
 - `base_cash`가 `null`(현금 잔액 데이터 없음)이면 유입·유출·순현금흐름만 계산하고 잔액은 `null`.
 - 이 섹션은 대시보드와 월별 리포트에서 동일 값이며 `month`/`cumulative` 구분이 없다.
+- 차트용 실적선은 `history`(1월~기준 월의 월별 `CASH_BALANCE`, 이월 없이 그 월 값만)로 낸다. 응답 형태는 `03-api.md` §8.4 [A-50].
 
 ### 3.5 손익분기점(BEP) — `bep` [A-30]
 
@@ -193,3 +198,35 @@
 - 프로젝트 A: gross_profit = 350, gross_margin = 35.0%
 - BEP: variable_cost = 400, fixed_cost = 400, 공헌이익률 = 60.0%, bep_revenue ≈ 666.67, 달성률 = 150.0%
 - revenue_per_head = 100, operating_profit_per_head = 20
+
+### 5.2 stock 이월 · 데이터 없음 (기준 월 9월)
+
+가정: 8월에 영업 제출(REVENUE 프로젝트 A 1,000, RECEIVABLE_BALANCE 500). 9월에는 **생산만** 제출(영업 미제출). 1~7월은 제출 없음.
+
+기대 결과 (대시보드 `trade`, 월별 리포트는 `month`/`cumulative`):
+- `cumulative`: revenue = 1,000, receivable_balance = 500, `receivable_balance_as_of_month` = 8, receivable_ratio = 50.0%
+- 월별 리포트 `month`(9월): 생산 보고서가 있으므로 블록은 존재한다. revenue = 0, receivable_balance = 500(`as_of_month` 8, 이월), receivable_ratio = `null`(분모 0)
+- `trend`: 1~7월 점은 `month`만 있고 나머지 `null`, 8월 receivable_balance = 500, 9월 receivable_balance = `null`(이월 안 함)·revenue = 0
+- `data_status`: `missing_departments`에 영업 포함, `has_warning` = true
+- 기준 월을 6월로 바꾸면(제출 없음) `month` 블록은 전부 `null`
+
+### 5.3 자금 수지 예측
+
+가정: 기준 월 9월, N = 3. 7·8·9월 모두 제출되었고 매월 COLLECTION_AMOUNT 100, PURCHASE_AMOUNT 100 + LABOR_COST 30 + EXPENSE_COST 10 + SGA_EXPENSE 10. 9월 CASH_BALANCE = 120.
+
+기대 결과: `reference_months` = [7, 8, 9], avg_inflow = 100, avg_outflow = 150, base_cash = 120(`as_of_month` 9)
+- 10월: net = −50, projected_cash = 70, shortfall = false
+- 11월: projected_cash = 20, shortfall = false
+- 12월: projected_cash = −30, shortfall = true
+
+추가 경계:
+- 기준 월 11월, N = 3 → 예측 월은 (해당 연도 12월), (다음 해 1월), (다음 해 2월)
+- 기준 월 1월 → `reference_months` = [1]
+- 7~9월에 제출이 없고 6월에만 있으면 `reference_months` = [], avg_*·예측 값 `null`, base_cash는 6월 값(`as_of_month` 6)
+- CASH_BALANCE 데이터가 전혀 없으면 base_cash = `null`, 예측 행의 inflow·outflow·net_cash_flow는 값이 있고 projected_cash·shortfall은 `null`
+
+### 5.4 목표 달성률
+
+- REVENUE 목표 1,200 / 실적 800 → achievement_rate = 66.7%
+- UTILIZATION 목표 85 / 실적 80 → 94.1%
+- 목표 미설정 또는 0 → `null`, 실적 `null` → `null`

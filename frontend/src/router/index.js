@@ -4,6 +4,7 @@ import { fetchMe } from '../api/auth'
 import LoginView from '../views/LoginView.vue'
 import EntryView from '../views/EntryView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
+import AdminReportView from '../views/AdminReportView.vue'
 import AdminStatusView from '../views/AdminStatusView.vue'
 import AdminGoalsView from '../views/AdminGoalsView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
@@ -13,6 +14,7 @@ const routes = [
   { path: '/login', component: LoginView, meta: { public: true } },
   { path: '/entry', component: EntryView, meta: { role: 'EMPLOYEE' } },
   { path: '/admin/dashboard', component: AdminDashboardView, meta: { role: 'ADMIN' } },
+  { path: '/admin/report', component: AdminReportView, meta: { role: 'ADMIN' } },
   { path: '/admin/status', component: AdminStatusView, meta: { role: 'ADMIN' } },
   { path: '/admin/goals', component: AdminGoalsView, meta: { role: 'ADMIN' } },
   { path: '/admin/users', component: AdminUsersView, meta: { role: 'ADMIN' } },

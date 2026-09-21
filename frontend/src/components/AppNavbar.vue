@@ -36,6 +36,9 @@ async function onLogout() {
             <router-link class="nav-link" active-class="active" to="/admin/dashboard">대시보드</router-link>
           </li>
           <li class="nav-item">
+            <router-link class="nav-link" active-class="active" to="/admin/report">월별 리포트</router-link>
+          </li>
+          <li class="nav-item">
             <router-link class="nav-link" active-class="active" to="/admin/status">입력 현황</router-link>
           </li>
           <li class="nav-item">
