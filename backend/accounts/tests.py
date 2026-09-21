@@ -43,7 +43,7 @@ class DefaultAdminTests(TestCase):
 class AuthApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.department = Department.objects.create(name="생산")
+        self.department = Department.objects.get(name="생산")  # 초기 데이터 [A-01]
         self.employee = User.objects.create_user(
             username="P001", password="password1", name="홍길동", department=self.department
         )

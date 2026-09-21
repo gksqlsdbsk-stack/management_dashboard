@@ -31,9 +31,17 @@ async function onLogout() {
         <li v-if="!isAdmin" class="nav-item">
           <router-link class="nav-link" active-class="active" to="/entry">월 실적 입력</router-link>
         </li>
-        <li v-if="isAdmin" class="nav-item">
-          <router-link class="nav-link" active-class="active" to="/admin/dashboard">대시보드</router-link>
-        </li>
+        <template v-if="isAdmin">
+          <li class="nav-item">
+            <router-link class="nav-link" active-class="active" to="/admin/dashboard">대시보드</router-link>
+          </li>
+          <li class="nav-item">
+            <router-link class="nav-link" active-class="active" to="/admin/users">사용자</router-link>
+          </li>
+          <li class="nav-item">
+            <router-link class="nav-link" active-class="active" to="/admin/departments">부서·항목</router-link>
+          </li>
+        </template>
       </ul>
       <span class="navbar-text me-3">{{ userLabel }}</span>
       <button type="button" class="btn btn-outline-light btn-sm" @click="onLogout">로그아웃</button>

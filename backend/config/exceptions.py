@@ -1,5 +1,7 @@
 """오류 응답을 {code, detail, errors} 형식으로 통일한다 [03 §1.1]."""
 
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
 from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
@@ -37,11 +39,12 @@ def api_exception_handler(exc, context):
         )
     if isinstance(exc, (exceptions.NotAuthenticated, exceptions.AuthenticationFailed)):
         return Response(_body("not_authenticated", "인증이 필요합니다."), status=status.HTTP_401_UNAUTHORIZED)
-    if isinstance(exc, exceptions.PermissionDenied):
+    # DRF가 내부에서 변환하는 Django 예외(get_object_or_404 등)도 같은 형식으로 응답한다
+    if isinstance(exc, (exceptions.PermissionDenied, PermissionDenied)):
         return Response(_body("forbidden", "권한이 없습니다."), status=status.HTTP_403_FORBIDDEN)
-    if isinstance(exc, exceptions.NotFound):
+    if isinstance(exc, (exceptions.NotFound, Http404)):
         return Response(_body("not_found", "대상을 찾을 수 없습니다."), status=status.HTTP_404_NOT_FOUND)
     if isinstance(exc, exceptions.ParseError):
         return Response(_body("validation_error", "요청 형식이 올바르지 않습니다."), status=status.HTTP_400_BAD_REQUEST)
 
-    return Response(_body(exc.default_code, exc.detail), status=response.status_code)
+    return Response(_body(getattr(exc, "default_code", "error"), response.data.get("detail", "")), status=response.status_code)

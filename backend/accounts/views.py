@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import mixins, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -7,7 +7,8 @@ from rest_framework.views import APIView
 from config.exceptions import ApiError
 
 from .models import User
-from .serializers import CurrentUserSerializer, LoginSerializer
+from .permissions import IsAdmin
+from .serializers import CurrentUserSerializer, LoginSerializer, UserSerializer
 
 LOGIN_FAILED_MESSAGE = "성명, 사번 또는 비밀번호가 올바르지 않습니다."
 
@@ -42,3 +43,33 @@ class LogoutView(APIView):
 class MeView(APIView):
     def get(self, request):
         return Response(CurrentUserSerializer(request.user).data)
+
+
+class UserViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAdmin]
+    serializer_class = UserSerializer
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        queryset = User.objects.select_related("department").order_by("id")
+        department = self.request.query_params.get("department")
+        if self.action == "list" and department:
+            if not department.isdigit():
+                raise ApiError(status.HTTP_400_BAD_REQUEST, "validation_error", "부서 값이 올바르지 않습니다.")
+            queryset = queryset.filter(department_id=department)
+        return queryset
+
+    def perform_destroy(self, instance):
+        # 자기 자신과 마지막 관리자는 삭제할 수 없다 [A-15]
+        if instance.pk == self.request.user.pk:
+            raise ApiError(status.HTTP_409_CONFLICT, "cannot_delete_user", "본인 계정은 삭제할 수 없습니다.")
+        if instance.role == User.Role.ADMIN and User.objects.filter(role=User.Role.ADMIN).count() <= 1:
+            raise ApiError(status.HTTP_409_CONFLICT, "cannot_delete_user", "마지막 관리자는 삭제할 수 없습니다.")
+        instance.delete()
