@@ -7,11 +7,11 @@
 
 ## 현재 상태
 
-> **문서 작성 단계입니다. 아직 코드는 없습니다.** 실행 방법은 Phase 1 완료 후 사용할 수 있습니다.
+> **Phase 1(프로젝트 기반 · 인증)까지 구현되었습니다.** 로그인·로그아웃과 역할별 홈 이동만 동작하며, 나머지 화면은 이후 Phase에서 구현됩니다.
 
 | Phase | 내용 | 상태 |
 |---|---|---|
-| 1 | 프로젝트 기반 · 인증 | ⬜ 시작 전 |
+| 1 | 프로젝트 기반 · 인증 | ✅ 완료 |
 | 2 | 관리자 마스터 관리 (사용자·부서·입력 항목) | ⬜ 시작 전 |
 | 3 | 월 실적 입력 | ⬜ 시작 전 |
 | 4 | 엑셀/CSV 업로드 | ⬜ 시작 전 |
@@ -60,10 +60,9 @@ Vue.js SPA  ──HTTP/JSON──>  Django REST Framework  ──Django ORM─�
 
 ## 실행 방법
 
-> 🚧 Phase 1 완료 후 이 절을 실제 동작 기준으로 확정합니다. 아래는 예정된 절차입니다.
-
 ```bash
-# 1. PostgreSQL (Postgres.app 실행 후)
+# 1. PostgreSQL (Postgres.app 실행 후. createdb가 PATH에 없으면 Postgres.app의 bin을 추가)
+export PATH="/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"
 createdb management_dashboard
 
 # 2. 백엔드 (http://127.0.0.1:8000)
@@ -80,6 +79,9 @@ npm run dev
 ```
 
 테스트: `cd backend && python manage.py test`, 프런트 빌드 검증: `cd frontend && npm run build`
+
+- 백엔드는 `http://127.0.0.1:8000`에만 열립니다. curl 등으로 직접 호출할 때는 `localhost` 대신 `127.0.0.1`을 쓰세요.
+- 기본 관리자(ADMIN / ADMIN / admin1234!)는 서버 시작 시 자동 생성되며, `migrate`가 끝난 뒤 `runserver`를 실행하면 만들어집니다.
 
 DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)로 바꿀 수 있으며, 기본값은 Postgres.app 로컬 설정입니다.
 
@@ -101,3 +103,4 @@ DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PO
 ## 변경 이력
 
 - 2026-09-21: 문서 초안 작성 (CLAUDE.md, specs/00~07, specs/99). 코드 없음.
+- 2026-09-21: Phase 1 구현 (Django 골격·User/Department 모델·기본 관리자·로그인 API, Vue 골격·로그인 화면). `Department` 모델을 Phase 1로 당기고 입력 항목 범위 변경 방지를 Phase 3으로 이월(07 반영).

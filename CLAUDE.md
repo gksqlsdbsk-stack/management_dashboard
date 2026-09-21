@@ -95,11 +95,13 @@ management_dashboard/
 
 ## 6. 실행 / 테스트 명령
 
-> ⚠️ 코드는 **Phase 1에서 생성**된다. 아래 명령은 Phase 1 완료 후 유효하며, 실제와 다르면 즉시 이 절과 README를 고친다.
+> 아래 명령은 Phase 1에서 실제로 실행해 확인했다. 실제와 다르면 즉시 이 절과 README를 고친다.
 
 **최초 준비 (1회)**
 ```bash
 # PostgreSQL: Postgres.app 실행(포트 5432) 후 DB 생성
+# (createdb가 PATH에 없으면 Postgres.app의 bin을 PATH에 추가)
+export PATH="/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"
 createdb management_dashboard
 
 # 백엔드
@@ -120,6 +122,7 @@ npm install
 cd backend && source .venv/bin/activate && python manage.py runserver 8000
 
 # 2) 프런트엔드 — http://localhost:5173  (/api는 8000으로 프록시)
+#    (Django는 127.0.0.1에만 열리므로 curl 등으로 직접 호출할 때는 localhost 대신 127.0.0.1 사용)
 cd frontend && npm run dev
 ```
 

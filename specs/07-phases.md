@@ -2,7 +2,7 @@
 
 > 각 Phase는 **작동하는 상태로 끝나야** 한다. Phase를 마치면 (1) 완료 기준 확인 → (2) README의 진행 현황 갱신 → (3) 변경된 스펙 반영 순서로 마무리한다.
 > 이 문서의 체크박스는 Phase 진행 중 Claude가 갱신한다. `[A-xx]`는 `99-assumptions.md` 참조.
-> **현재 상태: 문서 작성 완료, 코드 미작성 (Phase 1 시작 전)**
+> **현재 상태: Phase 1 완료, Phase 2 시작 전**
 
 | Phase | 주제 | 결과물 |
 |---|---|---|
@@ -20,15 +20,16 @@
 
 **목표**: 백엔드와 프런트가 연결되어 로그인까지 되는 골격을 만든다.
 
-- [ ] `backend/`: Django 프로젝트(`config`), 앱 5개 생성(`accounts`, `organization`, `reports`, `goals`, `analytics`) [A-41]
-- [ ] 설정: PostgreSQL 연결(환경변수) [A-40], DRF, `LANGUAGE_CODE`/`TIME_ZONE` [A-44], `AUTH_USER_MODEL`
-- [ ] `accounts.User`(AbstractUser 상속, `name`, `role`, `department`) 모델 + 마이그레이션 [A-09]
-- [ ] 기본 관리자 자동 생성 (앱 시작 시, 멱등) [A-13]
-- [ ] 로그인/로그아웃/me API (TokenAuthentication) [03 §2, A-12]
-- [ ] `frontend/`: Vue 3 + Vite + Vue Router + Bootstrap 5.0(CSS) + Chart.js 설치, Vite `/api` 프록시 [A-38, A-39]
-- [ ] 로그인 화면, 공통 레이아웃, 라우트 가드, API fetch 래퍼
-- [ ] `.gitignore`, `requirements.txt`, `package.json` 작성
-- [ ] CLAUDE.md의 실행/테스트 명령이 실제로 동작하는지 확인 후 갱신
+- [x] `backend/`: Django 프로젝트(`config`), 앱 5개 생성(`accounts`, `organization`, `reports`, `goals`, `analytics`) [A-41]
+- [x] 설정: PostgreSQL 연결(환경변수) [A-40], DRF, `LANGUAGE_CODE`/`TIME_ZONE` [A-44], `AUTH_USER_MODEL`
+- [x] `organization.Department` 모델 + 마이그레이션 (`User.department` FK가 참조하므로 Phase 1에서 만든다. 초기 데이터·API는 Phase 2) [02 §2.2]
+- [x] `accounts.User`(AbstractUser 상속, `name`, `role`, `department`) 모델 + 마이그레이션 [A-09]
+- [x] 기본 관리자 자동 생성 (앱 시작 시, 멱등) [A-13]
+- [x] 로그인/로그아웃/me API (TokenAuthentication) [03 §2, A-12]
+- [x] `frontend/`: Vue 3 + Vite + Vue Router + Bootstrap 5.0(CSS) + Chart.js 설치, Vite `/api` 프록시 [A-38, A-39]
+- [x] 로그인 화면, 공통 레이아웃, 라우트 가드, API fetch 래퍼
+- [x] `.gitignore`, `requirements.txt`, `package.json` 작성
+- [x] CLAUDE.md의 실행/테스트 명령이 실제로 동작하는지 확인 후 갱신
 
 **완료 기준**
 - `python manage.py migrate` 후 서버를 켜면 ADMIN/ADMIN/admin1234! 로 로그인된다
@@ -41,11 +42,11 @@
 
 **목표**: 관리자가 조직과 입력 항목을 화면에서 관리할 수 있다.
 
-- [ ] `Department`, `InputItem` 모델·마이그레이션, 초기 데이터 마이그레이션 [A-01, A-02]
+- [ ] `InputItem` 모델·마이그레이션(`Department`는 Phase 1), 초기 데이터 마이그레이션 [A-01, A-02]
 - [ ] 지표 연동 키 고정 목록(코드 상수) + `/metric-keys/` [A-07]
 - [ ] 사용자 CRUD API + 삭제 제한 [A-15], 비밀번호 재설정 [A-14]
 - [ ] 부서 CRUD(논리 삭제) + 소속 사용자 있는 부서 삭제 방지 [A-06]
-- [ ] 입력 항목 CRUD(논리 삭제), 값이 있는 항목의 범위 변경 방지
+- [ ] 입력 항목 CRUD(논리 삭제) (값이 있는 항목의 범위 변경 방지는 `ReportValue`가 생기는 Phase 3에서 구현)
 - [ ] 화면: `/admin/users`, `/admin/departments`
 - [ ] 권한: 관리자 전용 API (직원 403)
 
@@ -53,7 +54,7 @@
 - 관리자가 사용자 추가/수정/삭제, 부서 배정, 부서·항목 CRUD를 화면에서 할 수 있다
 - 자기 자신·마지막 관리자는 삭제되지 않는다
 - 직원 토큰으로 관리 API 호출 시 403
-- 테스트: 권한, 삭제 제한, 논리 삭제 후 이름 재사용
+- 테스트: 권한, 삭제 제한, 논리 삭제 후 이름 재사용, 초기 데이터
 
 ## Phase 3. 월 실적 입력
 
@@ -64,6 +65,8 @@
 - [ ] 검증: 미래 월, 다른 부서 항목, 중복 (항목, 프로젝트명), 범위별 project_name 규칙
 - [ ] 제출 검증(필수 항목), 중복 제출 409, 제출 후 잠금 [A-18, A-20]
 - [ ] 진행률 계산(서버) [A-20]
+- [ ] 값이 있는 입력 항목의 범위(scope) 변경 방지 (`PATCH /items/{id}/` 400) [A-04] — Phase 2에서 이월
+- [ ] 소속 부서가 없는 직원의 `/my-report/` 요청 처리 (403 `forbidden` 제안 → 99에 `A-xx`로 기록)
 - [ ] 화면: `/entry` (월 선택, 안내 문구, 월 합계형/프로젝트별형 입력, 진행률 막대, 임시 저장, 제출, 제출 후 잠금) [04 §3.2]
 
 **완료 기준**
