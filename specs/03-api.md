@@ -23,7 +23,7 @@
 | 400 | `validation_error` | 입력 형식 오류 |
 | 400 | `login_failed` | 성명/사번/비밀번호 불일치 [A-10] |
 | 400 | `incomplete_required` | 제출 시 필수 항목 미입력 (`errors.missing_items` = 항목 id/이름 목록) [A-20] |
-| 400 | `upload_invalid` | 업로드 파일 오류 (`errors.rows` = `[{row, message}]`) [A-24] |
+| 400 | `upload_invalid` | 업로드 파일 오류 (`errors.rows` = `[{row, message}]`, 파일 자체 오류는 빈 배열) [A-24, A-48] |
 | 401 | `not_authenticated` | 토큰 없음/무효 |
 | 403 | `forbidden` | 권한 없음 [A-16] |
 | 404 | `not_found` | 대상 없음 |

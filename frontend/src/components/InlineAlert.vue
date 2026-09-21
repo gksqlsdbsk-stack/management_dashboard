@@ -8,8 +8,8 @@ defineProps({
 <template>
   <div v-if="alert.message" class="alert" :class="`alert-${alert.type}`" role="alert">
     {{ alert.message }}
-    <ul v-if="alert.details.length" class="mb-0 mt-1">
-      <li v-for="detail in alert.details" :key="detail">{{ detail }}</li>
+    <ul v-if="alert.details.length" class="mb-0 mt-1" style="max-height: 16rem; overflow-y: auto">
+      <li v-for="(detail, index) in alert.details" :key="index">{{ detail }}</li>
     </ul>
   </div>
 </template>

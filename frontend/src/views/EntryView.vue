@@ -1,10 +1,11 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { getMyReport, saveMyReport, submitMyReport } from '../api/report'
+import { getMyReport, saveMyReport, submitMyReport, uploadMyReport } from '../api/report'
 import { errorAlert, successAlert, noAlert } from '../utils/errors'
 import InlineAlert from '../components/InlineAlert.vue'
 import ProgressBar from '../components/ProgressBar.vue'
 import ReportItemInput from '../components/ReportItemInput.vue'
+import UploadPanel from '../components/UploadPanel.vue'
 
 const STATUS_LABELS = { NOT_STARTED: '미작성', DRAFT: '작성 중', SUBMITTED: '제출 완료' }
 const STATUS_BADGES = { NOT_STARTED: 'bg-secondary', DRAFT: 'bg-warning text-dark', SUBMITTED: 'bg-success' }
@@ -20,6 +21,8 @@ const noDepartmentMessage = ref('')
 const loading = ref(false)
 const busy = ref(false)
 const pageAlert = ref(noAlert())
+const uploadAlert = ref(noAlert())
+const uploadPanel = ref(null)
 const state = reactive({}) // 항목 id → { value } (월 합계형) | { rows } (프로젝트별형)
 let rowSeq = 0
 let loadSeq = 0
@@ -81,6 +84,7 @@ async function load() {
   const seq = ++loadSeq
   loading.value = true
   pageAlert.value = noAlert()
+  uploadAlert.value = noAlert()
   noDepartmentMessage.value = ''
   try {
     const data = await getMyReport(year.value, month.value)
@@ -158,6 +162,44 @@ async function submit() {
   }
 }
 
+// 업로드: 화면에 입력 중인 값을 잃지 않도록 먼저 임시 저장한 뒤 파일을 반영한다 [06 §5].
+// 파일 값이 같은 (항목, 프로젝트명)의 입력값을 덮어쓰고, 파일에 없는 값은 유지된다.
+async function uploadFile(file) {
+  busy.value = true
+  pageAlert.value = noAlert()
+  uploadAlert.value = noAlert()
+  let step = 'save'
+  try {
+    const values = collectValues()
+    if (values.length || report.value.status !== 'NOT_STARTED') {
+      await saveMyReport(year.value, month.value, values)
+    }
+    step = 'upload'
+    const result = await uploadMyReport(year.value, month.value, file)
+    applyReport(result.report)
+    uploadAlert.value = successAlert(`${result.applied_count}건 반영됨, 확인 후 제출하세요.`)
+    uploadPanel.value?.clear()
+  } catch (error) {
+    if (error.status === 409) {
+      await load()
+      pageAlert.value = errorAlert(error)
+    } else if (step === 'save') {
+      const alert = errorAlert(error, { values: '' })
+      pageAlert.value = { ...alert, message: `입력 중인 값을 저장하지 못해 업로드하지 않았습니다. ${alert.message}` }
+    } else if (error.code === 'upload_invalid') {
+      uploadAlert.value = {
+        type: 'danger',
+        message: `${error.message} (어떤 값도 반영되지 않았습니다.)`,
+        details: (error.errors?.rows ?? []).map((row) => row.message),
+      }
+    } else {
+      pageAlert.value = errorAlert(error)
+    }
+  } finally {
+    busy.value = false
+  }
+}
+
 // 연·월이 바뀌면 다시 불러온다. 미래 월은 고를 수 없도록 보정한다.
 watch([year, month], () => {
   if (!Number.isInteger(year.value) || year.value < 1) return
@@ -225,6 +267,7 @@ onMounted(load)
             @remove-row="(index) => removeRow(item, index)"
           />
           <p v-if="!report.items.length" class="text-muted mb-0">입력할 항목이 없습니다. 관리자에게 문의하세요.</p>
+          <UploadPanel ref="uploadPanel" :alert="uploadAlert" @upload="uploadFile" />
         </fieldset>
         <div class="d-flex justify-content-end gap-2 border-top pt-3">
           <button type="button" class="btn btn-outline-primary" :disabled="locked || busy" @click="saveDraft">임시 저장</button>

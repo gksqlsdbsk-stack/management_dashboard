@@ -9,7 +9,7 @@ from rest_framework import serializers, status
 from config.exceptions import ApiError
 from organization.models import InputItem
 
-from .models import MonthlyReport, ReportValue
+from .models import PROJECT_NAME_MAX_LENGTH, MonthlyReport, ReportValue
 
 NO_DEPARTMENT_MESSAGE = "소속 부서가 없습니다. 관리자에게 문의하세요."
 
@@ -24,7 +24,6 @@ _value_field = serializers.DecimalField(
         "max_whole_digits": "값이 허용 범위를 벗어났습니다.",
     },
 )
-PROJECT_NAME_MAX_LENGTH = ReportValue._meta.get_field("project_name").max_length
 
 
 # ---- 대상 확인 ----
@@ -199,6 +198,33 @@ def save_values(department, year, month, parsed, items):
         )
         report.save(update_fields=["updated_at"])
     return report
+
+
+def apply_upload(department, year, month, parsed, items):
+    """업로드 반영: (항목, 프로젝트명) 조합은 덮어쓰고 파일에 없는 값은 유지한다 [06 §5, A-24].
+
+    하나의 트랜잭션으로 처리하며 보고서가 없으면 DRAFT로 만든다. 반영된 값 개수를 함께 돌려준다.
+    """
+    with transaction.atomic():
+        report, _ = MonthlyReport.objects.select_for_update().get_or_create(
+            department=department, year=year, month=month
+        )
+        if report.status == MonthlyReport.Status.SUBMITTED:
+            raise _locked_error()
+
+        existing = {(v.item_id, v.project_name): v for v in report.values.filter(item__in=items)}
+        to_create, to_update = [], []
+        for item, project_name, value in parsed:
+            current = existing.get((item.id, project_name))
+            if current is None:
+                to_create.append(ReportValue(report=report, item=item, project_name=project_name, value=value))
+            else:
+                current.value = value
+                to_update.append(current)
+        ReportValue.objects.bulk_create(to_create)
+        ReportValue.objects.bulk_update(to_update, ["value"])
+        report.save(update_fields=["updated_at"])
+    return report, len(parsed)
 
 
 def check_not_locked(report):

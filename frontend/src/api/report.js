@@ -14,3 +14,10 @@ export function saveMyReport(year, month, values) {
 export function submitMyReport(year, month) {
   return request(`${path(year, month)}submit/`, { method: 'POST' })
 }
+
+// 엑셀/CSV 업로드: multipart/form-data, 필드명 `file` [06]
+export function uploadMyReport(year, month, file) {
+  const body = new FormData()
+  body.append('file', file)
+  return request(`${path(year, month)}upload/`, { method: 'POST', body })
+}

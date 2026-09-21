@@ -2,6 +2,8 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 
+PROJECT_NAME_MAX_LENGTH = 100
+
 
 class MonthlyReport(models.Model):
     class Status(models.TextChoices):
@@ -34,7 +36,7 @@ class ReportValue(models.Model):
     report = models.ForeignKey(MonthlyReport, on_delete=models.CASCADE, related_name="values")
     item = models.ForeignKey("organization.InputItem", on_delete=models.PROTECT, related_name="report_values")
     # PROJECT 범위 항목만 값을 가진다. MONTHLY는 빈 문자열 [A-04]
-    project_name = models.CharField(max_length=100, default="", blank=True)
+    project_name = models.CharField(max_length=PROJECT_NAME_MAX_LENGTH, default="", blank=True)
     value = models.DecimalField(max_digits=20, decimal_places=4)
 
     class Meta:
