@@ -8,6 +8,7 @@ import {
   cashChart, costProfitChart, goalsChart, ordersChart, productionChart, productivityChart, projectsChart, tradeChart,
 } from '../utils/charts'
 import ChartCanvas from '../components/ChartCanvas.vue'
+import CsvDownloadButton from '../components/CsvDownloadButton.vue'
 import DataStatusWarning from '../components/DataStatusWarning.vue'
 import InlineAlert from '../components/InlineAlert.vue'
 import KpiCard from '../components/KpiCard.vue'
@@ -16,16 +17,18 @@ import PeriodControls from '../components/PeriodControls.vue'
 import ProjectTable from '../components/ProjectTable.vue'
 
 const data = ref(null)
+const period = ref(null) // 마지막으로 선택된 { year, month, horizon } (CSV 다운로드에 사용)
 const alert = ref(noAlert())
 const loading = ref(false)
 let loadSeq = 0
 
-async function load(period) {
+async function load(selected) {
+  period.value = selected
   const seq = ++loadSeq
   loading.value = true
   alert.value = noAlert()
   try {
-    const result = await getDashboard(period)
+    const result = await getDashboard(selected)
     if (seq === loadSeq) data.value = result
   } catch (error) {
     if (seq === loadSeq) {
@@ -53,6 +56,10 @@ const charts = computed(() => {
   }
 })
 
+function onDownloadError(error) {
+  alert.value = errorAlert(error)
+}
+
 const cumulative = (section) => (data.value ? [{ label: '누적', data: data.value[section].cumulative }] : [])
 const hasData = computed(() => data.value?.cost_profit.cumulative.revenue !== null)
 const bepRate = computed(() => data.value?.bep.cumulative.bep_achievement_rate ?? null)
@@ -74,7 +81,9 @@ const goalValue = (goal, value) => (goal.unit === '%' ? formatPercent(value) : f
 <template>
   <h1 class="h4 mb-3">누적 대시보드</h1>
 
-  <PeriodControls @change="load" />
+  <PeriodControls @change="load">
+    <CsvDownloadButton kind="dashboard" :period="period" @error="onDownloadError" />
+  </PeriodControls>
   <InlineAlert :alert="alert" />
   <p v-if="loading && !data" class="text-muted">불러오는 중...</p>
 

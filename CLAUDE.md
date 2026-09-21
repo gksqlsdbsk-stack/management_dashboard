@@ -40,7 +40,7 @@ Vue.js SPA  ──HTTP/JSON──>  Django REST Framework  ──Django ORM─�
 
 버전과 보조 결정(psycopg 3, Vue Router, fetch 사용, Pinia/axios 미사용, Vite 프록시 등)은 `specs/99-assumptions.md` §6 (A-37 ~ A-42)을 따른다. 위 표에 없는 라이브러리는 추가하지 않는다.
 
-## 4. 폴더 구조 (목표 구조 — 코드는 Phase 1부터 생성)
+## 4. 폴더 구조
 
 ```
 management_dashboard/
@@ -55,16 +55,17 @@ management_dashboard/
 │   ├── organization/           # Department, InputItem, 지표 연동 키 상수
 │   ├── reports/                # MonthlyReport, ReportValue, 입력/제출/업로드
 │   ├── goals/                  # AnnualGoal
-│   └── analytics/              # 지표 계산, 대시보드/리포트, 입력 현황, CSV 다운로드
+│   └── analytics/              # 지표 계산(metrics.py 순수 함수), 대시보드/리포트, 입력 현황, CSV 다운로드(export.py)
 └── frontend/
     ├── package.json
     ├── vite.config.js          # /api 프록시
     └── src/
-        ├── api/                # fetch 래퍼와 API 함수
+        ├── api/                # fetch 래퍼(파일 다운로드 포함)와 API 함수
         ├── router/             # Vue Router, 가드
         ├── views/              # 화면(라우트 단위)
-        ├── components/         # 재사용 컴포넌트, 차트
-        └── ...
+        ├── components/         # 재사용 컴포넌트, 차트 캔버스
+        ├── utils/              # 표시 형식(format.js), Chart.js 설정, 표 행 정의
+        └── auth.js             # 로그인 상태(토큰), 역할별 홈
 ```
 
 ## 5. 개발 원칙
@@ -95,7 +96,7 @@ management_dashboard/
 
 ## 6. 실행 / 테스트 명령
 
-> 아래 명령은 Phase 1에서 실제로 실행해 확인했다. 실제와 다르면 즉시 이 절과 README를 고친다.
+> 아래 명령은 Phase 1에서 실행해 확인했고 Phase 7에서 새 환경(빈 DB, 새 venv, 새 `npm install`) 기준으로 다시 확인했다. 실제와 다르면 즉시 이 절과 README를 고친다.
 
 **최초 준비 (1회)**
 ```bash

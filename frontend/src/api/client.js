@@ -50,3 +50,25 @@ export async function request(path, { method = 'GET', body } = {}) {
   }
   return data
 }
+
+// 파일 다운로드(CSV): 인증 헤더가 필요해 fetch 로 받아 Blob 으로 돌려준다 [03 §8.5].
+// 오류는 JSON 본문이므로 request 와 같은 ApiError 로 던진다.
+export async function download(path) {
+  const headers = session.token ? { Authorization: `Token ${session.token}` } : {}
+  let response
+  try {
+    response = await fetch(BASE_URL + path, { headers })
+  } catch {
+    throw new ApiError(0, { detail: '서버에 연결할 수 없습니다.' })
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    if (response.status === 401) {
+      clearSession()
+      onUnauthorized()
+    }
+    throw new ApiError(response.status, data)
+  }
+  const filename = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'download.csv'
+  return { blob: await response.blob(), filename }
+}

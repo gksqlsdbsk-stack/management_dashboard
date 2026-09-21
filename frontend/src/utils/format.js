@@ -2,9 +2,11 @@
 // 값이 없으면(계산 불가 `null`) '-' 로 표시한다.
 const isEmpty = (value) => value === null || value === undefined || value === ''
 
+// 정수 반올림은 절반을 0에서 먼 쪽으로 올린다(CSV 다운로드와 같은 규칙 [A-51]). -0 은 0 으로 표시한다
 const integer = (value) => {
-  const rounded = Math.round(Number(value))
-  return (rounded === 0 ? 0 : rounded).toLocaleString('ko-KR') // -0 방지
+  const number = Number(value)
+  const rounded = Math.sign(number) * Math.round(Math.abs(number))
+  return (rounded === 0 ? 0 : rounded).toLocaleString('ko-KR')
 }
 
 export function formatNumber(value) {
@@ -26,9 +28,13 @@ export function formatPercent(value) {
   return `${text === '-0.0' ? '0.0' : text}%`
 }
 
-// 소수 1자리까지 보여주는 수량(인당 생산량 등)
+// 소수 1자리 수량(인당 생산량 등). 비율과 같은 방식(toFixed)으로 반올림해 CSV와 같은 값을 낸다 [A-51]
 export function formatDecimal(value) {
-  return isEmpty(value) ? '-' : Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 1 })
+  if (isEmpty(value)) return '-'
+  const fixed = Number(value).toFixed(1)
+  const negative = fixed.startsWith('-') && Number(fixed) !== 0 // -0.0 방지
+  const [whole, fraction] = fixed.replace('-', '').split('.')
+  return `${negative ? '-' : ''}${Number(whole).toLocaleString('ko-KR')}.${fraction}`
 }
 
 const FORMATTERS = { money: formatMoney, qty: formatQty, percent: formatPercent, decimal: formatDecimal }

@@ -305,8 +305,9 @@
 - 참조 기간에 제출 데이터가 없으면 `reference_months: []`, `avg_inflow`·`avg_outflow`는 `null`이고, `forecast` 각 행은 `year`·`month`만 채우고 나머지(`inflow`, `outflow`, `net_cash_flow`, `projected_cash`, `shortfall`)는 `null`이다. `base_cash`는 그대로 보고한다.
 - `base_cash`가 `null`이면 `projected_cash`·`shortfall`만 `null`이다.
 
-### 8.5 CSV 다운로드 [A-43]
+### 8.5 CSV 다운로드 [A-43, A-51]
 
-- `Content-Type: text/csv; charset=utf-8`, UTF-8 BOM 포함, `Content-Disposition: attachment; filename="dashboard_2026-09.csv"` (리포트는 `monthly-report_2026-09.csv`)
-- 열: `섹션,항목,구분,단위,값`
+- `GET /dashboard/export/`, `GET /monthly-report/export/`는 §8 본문 API와 **같은 쿼리 파라미터·권한·검증**(관리자 전용, `year`·`month` 필수, 미래 월 400, `horizon` 3~6)을 쓴다. 오류는 CSV가 아니라 §1.1의 JSON 오류 본문이다.
+- 성공 시 200, `Content-Type: text/csv; charset=utf-8`, UTF-8 BOM 포함, `Content-Disposition: attachment; filename="dashboard_2026-09.csv"` (리포트는 `monthly-report_2026-09.csv`, 월은 두 자리).
+- 열: `섹션,항목,구분,단위,값`. 행 구성·순서·표시 규칙은 `05-metrics.md` §4를 따른다.
 - 브라우저는 인증 헤더가 필요하므로 프런트가 `fetch`로 받아 Blob으로 저장한다.

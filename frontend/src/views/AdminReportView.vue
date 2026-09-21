@@ -6,6 +6,7 @@ import { formatMoney, formatPercent } from '../utils/format'
 import { SECTION_ROWS, SECTION_TITLES } from '../utils/sections'
 import { cashChart, projectsChart } from '../utils/charts'
 import ChartCanvas from '../components/ChartCanvas.vue'
+import CsvDownloadButton from '../components/CsvDownloadButton.vue'
 import DataStatusWarning from '../components/DataStatusWarning.vue'
 import InlineAlert from '../components/InlineAlert.vue'
 import MetricTable from '../components/MetricTable.vue'
@@ -16,16 +17,18 @@ import ProjectTable from '../components/ProjectTable.vue'
 const SECTIONS_AFTER_CASH = ['bep', 'production', 'orders', 'productivity']
 
 const data = ref(null)
+const period = ref(null) // 마지막으로 선택된 { year, month, horizon } (CSV 다운로드에 사용)
 const alert = ref(noAlert())
 const loading = ref(false)
 let loadSeq = 0
 
-async function load(period) {
+async function load(selected) {
+  period.value = selected
   const seq = ++loadSeq
   loading.value = true
   alert.value = noAlert()
   try {
-    const result = await getMonthlyReport(period)
+    const result = await getMonthlyReport(selected)
     if (seq === loadSeq) data.value = result
   } catch (error) {
     if (seq === loadSeq) {
@@ -35,6 +38,10 @@ async function load(period) {
   } finally {
     if (seq === loadSeq) loading.value = false
   }
+}
+
+function onDownloadError(error) {
+  alert.value = errorAlert(error)
 }
 
 const blocks = (section) => [
@@ -53,7 +60,9 @@ const goalValue = (goal, value) => (goal.unit === '%' ? formatPercent(value) : f
 <template>
   <h1 class="h4 mb-3">월별 리포트</h1>
 
-  <PeriodControls @change="load" />
+  <PeriodControls @change="load">
+    <CsvDownloadButton kind="monthly-report" :period="period" @error="onDownloadError" />
+  </PeriodControls>
   <InlineAlert :alert="alert" />
   <p v-if="loading && !data" class="text-muted">불러오는 중...</p>
 

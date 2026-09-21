@@ -1,4 +1,6 @@
+from django.http import HttpResponse
 from rest_framework import status
+from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -7,6 +9,7 @@ from config.exceptions import ApiError
 from reports.services import validate_period
 
 from . import dashboard as dashboard_service
+from . import export as export_service
 from . import status as status_service
 
 DEFAULT_HORIZON = 3
@@ -76,3 +79,43 @@ class MonthlyReportView(APIView):
 
     def get(self, request):
         return Response(dashboard_service.build_monthly_report(*_dashboard_params(request)))
+
+
+class IgnoreAcceptNegotiation(DefaultContentNegotiation):
+    """CSV 응답에서 `Accept: text/csv` 요청이 406으로 거부되지 않도록 항상 첫 렌더러(JSON)를 고른다.
+
+    오류 응답은 이 렌더러로 JSON 본문이 나간다 [03 §8.5].
+    """
+
+    def select_renderer(self, request, renderers, format_suffix=None):
+        return renderers[0], renderers[0].media_type
+
+
+def _csv_response(content, filename):
+    response = HttpResponse(content, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+class DashboardExportView(APIView):
+    """`GET /dashboard/export/?year=&month=&horizon=` — 대시보드 CSV 다운로드 (관리자) [A-43, A-51]."""
+
+    permission_classes = [IsAdmin]
+    content_negotiation_class = IgnoreAcceptNegotiation
+
+    def get(self, request):
+        year, month, horizon = _dashboard_params(request)
+        data = dashboard_service.build_dashboard(year, month, horizon)
+        return _csv_response(export_service.dashboard_csv(data), f"dashboard_{year}-{month:02d}.csv")
+
+
+class MonthlyReportExportView(APIView):
+    """`GET /monthly-report/export/?year=&month=&horizon=` — 월별 리포트 CSV 다운로드 (관리자)."""
+
+    permission_classes = [IsAdmin]
+    content_negotiation_class = IgnoreAcceptNegotiation
+
+    def get(self, request):
+        year, month, horizon = _dashboard_params(request)
+        data = dashboard_service.build_monthly_report(year, month, horizon)
+        return _csv_response(export_service.monthly_report_csv(data), f"monthly-report_{year}-{month:02d}.csv")
