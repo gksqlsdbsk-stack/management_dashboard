@@ -1,9 +1,13 @@
 // 서버 오류를 화면 알림용 {type, message, details} 로 바꾼다.
-// `labels`: 필드 이름 → 화면에 보일 한글 이름 (없으면 필드 이름 그대로)
+// `labels`: 필드 이름 → 화면에 보일 한글 이름 (없으면 필드 이름 그대로, 빈 문자열이면 메시지만 표시)
 export function errorAlert(error, labels = {}) {
   const details = []
   for (const [field, messages] of Object.entries(error.errors ?? {})) {
-    if (Array.isArray(messages)) details.push(`${labels[field] ?? field}: ${messages.join(' ')}`)
+    if (!Array.isArray(messages)) continue
+    const label = field in labels ? labels[field] : field
+    for (const message of messages) {
+      if (typeof message === 'string') details.push(label ? `${label}: ${message}` : message)
+    }
   }
   return { type: 'danger', message: error.message || '요청을 처리하지 못했습니다.', details }
 }

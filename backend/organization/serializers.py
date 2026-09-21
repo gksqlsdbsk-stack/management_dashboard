@@ -39,3 +39,9 @@ class InputItemSerializer(serializers.ModelSerializer):
 
     def validate_metric_key(self, value):
         return value or None
+
+    def validate_scope(self, value):
+        # 이미 값이 입력된 항목은 범위를 바꾸면 기존 데이터 해석이 깨진다 [A-04]
+        if self.instance and value != self.instance.scope and self.instance.report_values.exists():
+            raise serializers.ValidationError("이미 입력된 값이 있는 항목은 범위를 바꿀 수 없습니다.")
+        return value

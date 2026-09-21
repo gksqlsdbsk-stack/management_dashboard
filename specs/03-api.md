@@ -120,15 +120,20 @@
 }
 ```
 - `NOT_STARTED`는 저장된 레코드가 없다는 뜻이며 DB `status` 값이 아니다.
+- `items`·`values`·진행률은 **활성 항목**만 대상으로 한다. 비활성(삭제)된 항목의 과거 값은 저장되어 있어도 응답에 나오지 않고, PUT이 건드리지 않고 유지한다 [A-06].
+- 소속 부서가 없거나 삭제된 직원, 관리자 계정은 이 절의 모든 API에서 403 `forbidden` [A-46].
+- 검증 순서: 권한 → 연·월(400) → 잠금(409 `report_locked`) → 요청 본문(400).
 
 `PUT` 요청: `{ "values": [ { "item_id": 12, "project_name": "A프로젝트", "value": 1500000 }, ... ] }`
 - 요청의 값 집합이 저장된 값 전체를 교체한다. 빈 값(`null`/생략)은 저장하지 않는다.
 - `MONTHLY` 항목에 `project_name`이 있거나 `PROJECT` 항목에 `project_name`이 비면 400.
 - 같은 (`item_id`, `project_name`)이 요청에 중복되면 400.
-- 다른 부서의 항목 id는 400. 상태가 `SUBMITTED`이면 409 `report_locked`.
+- 다른 부서·비활성·없는 항목 id는 400. 상태가 `SUBMITTED`이면 409 `report_locked`.
+- 값이 `null`/생략인 행은 저장하지 않으며, `project_name` 규칙·중복 검사도 값이 있는 행에만 적용한다. `project_name`은 앞뒤 공백을 제거한 뒤 저장·비교한다 [A-04].
+- 본문 오류는 `errors.values` = 한국어 메시지 문자열 배열이다. 소수 4자리 초과·자릿수 20 초과는 400 [A-03].
 
 `submit`
-- 필수 항목 미입력 → 400 `incomplete_required`
+- 필수 항목 미입력 → 400 `incomplete_required`, `errors.missing_items` = `[{ "id": 12, "name": "…" }]`. 필수 항목이 0개면 값 없이도 제출 가능 [A-47]
 - 이미 `SUBMITTED` → 409 `duplicate_submission`
 - 성공 → 200, `status=SUBMITTED`, `submitted_at`, 위 GET과 같은 본문
 
