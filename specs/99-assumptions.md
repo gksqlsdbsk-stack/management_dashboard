@@ -5,7 +5,7 @@
 > 다른 specs 문서에서는 `[A-xx]` 태그로 이 문서의 항목을 참조합니다.
 > 값을 바꾸면 **이 문서만 먼저 수정**하고, 참조하는 문서(“영향 문서”)를 함께 맞춥니다. (Claude에게 “99 수정 반영해 줘”라고 요청하면 됩니다.)
 
-- 최종 수정: 2026-09-21 (초안, Phase 3에서 A-46·A-47, Phase 4에서 A-48, Phase 5에서 A-49, Phase 6에서 A-50, Phase 7에서 A-51 추가)
+- 최종 수정: 2026-09-21 (초안, Phase 3에서 A-46·A-47, Phase 4에서 A-48, Phase 5에서 A-49, Phase 6에서 A-50, Phase 7에서 A-51, 배포 준비(Phase 8)에서 A-52 추가)
 - ⭐ = 업무에 영향이 커서 **우선 확인을 권장**하는 항목
 - 모든 항목의 현재 상태는 `임시`입니다. 확인을 마친 항목은 제목의 `임시`를 `확정`으로 직접 바꿔 주세요.
 
@@ -306,7 +306,7 @@ SPA 화면 전환을 위해 **Vue Router**를 사용한다. 상태관리 라이�
 영향 문서: CLAUDE.md, 04
 
 ### A-39 개발 서버와 프록시 — 임시
-Django `runserver` 8000번, Vite dev 서버 5173번. 개발 중 CORS 설정 대신 **Vite 프록시**(`/api` → `http://127.0.0.1:8000`)를 사용한다(`django-cors-headers` 미사용). 배포는 범위 밖.
+Django `runserver` 8000번, Vite dev 서버 5173번. 개발 중 CORS 설정 대신 **Vite 프록시**(`/api` → `http://127.0.0.1:8000`)를 사용한다(개발에서는 `django-cors-headers` 설정 없음). 운영(Render) 설정은 A-52.
 영향 문서: CLAUDE.md, 07
 
 ### A-40 DB 접속 설정 — 임시
@@ -333,10 +333,24 @@ UI 문구는 **한국어**, Django `LANGUAGE_CODE=ko-kr`, `TIME_ZONE=Asia/Seoul`
 경로 접두어 `/api/`, JSON, **페이지네이션 없음**(PoC 데이터 규모 가정), 오류 응답 형식 `{"code", "detail", "errors"}`. 자세한 내용은 `03-api.md`.
 영향 문서: 03
 
+### A-52 ⭐ Render 배포 설정 — 임시
+사용자 요청으로 **Render**(백엔드 Web Service(Python) + Render Postgres + 프런트 Static Site)에 배포할 수 있도록 운영 설정을 준비한다(07 Phase 8). Render 이외의 배포 방식·CI/CD·도메인 설정은 범위 밖이다.
+- **오리진**: 프런트(Static Site)와 백엔드(Web Service)는 서로 다른 오리진이므로 운영에서는 **CORS**를 쓴다. 프런트는 빌드 시 `VITE_API_BASE_URL`(예: `https://<백엔드>.onrender.com`)을 받아 `<그 값>/api/…`를 호출한다. 개발은 A-39대로 Vite 프록시(값 없음)를 쓴다.
+- **백엔드 환경변수**: `SECRET_KEY`(`DEBUG=false`이면 필수), `DEBUG`(기본 `true`=로컬 개발, 운영은 `false`), `ALLOWED_HOSTS`(쉼표 구분. Render가 주는 `RENDER_EXTERNAL_HOSTNAME`은 자동 포함, `DEBUG=false`인데 비어 있으면 시작 오류), `DATABASE_URL`(있으면 `DB_*`보다 우선, 없으면 A-40의 `DB_*`), `CORS_ALLOWED_ORIGINS`(쉼표 구분, 프런트 오리진), `DEFAULT_ADMIN_PASSWORD`(선택).
+- **초기 관리자 비밀번호**: A-13의 `admin1234!`는 공개 저장소에 적혀 있으므로 운영에서는 환경변수 `DEFAULT_ADMIN_PASSWORD`로 초기 비밀번호를 지정한다. 값이 없으면 기존대로 `admin1234!`(로컬 개발용). 관리자가 이미 있으면 아무 것도 하지 않는 동작(멱등)은 그대로다.
+- **패키지 추가**: `gunicorn`(운영 WSGI 서버), `django-cors-headers`(CORS). A-37의 목록에 더한다. 백엔드는 JSON API만 제공하고 Django admin·정적 파일이 없으므로 **정적 파일 처리 도구(whitenoise, `collectstatic`)는 쓰지 않는다**.
+- **DB**: `DATABASE_URL`은 표준 라이브러리로 파싱한다(별도 패키지 없음). Render Postgres의 Internal Database URL을 쓴다.
+- **응답 헤더**: 프런트가 CSV 파일명을 읽을 수 있도록 CORS로 `Content-Disposition`을 노출한다.
+- **HTTPS**: TLS 종료와 HTTP→HTTPS 리다이렉트는 Render가 한다. 앱은 `X-Forwarded-Proto`를 신뢰하도록만 설정하고(`DEBUG=false`일 때) SSL 리다이렉트·HSTS는 설정하지 않는다.
+- **마이그레이션**: 빌드 명령에서 실행한다(`pip install -r requirements.txt && python manage.py migrate`). 앱 시작 시 기본 관리자 생성은 그대로다.
+- **로깅**: 운영에서 예외가 Render 로그에 남도록 콘솔 로깅을 설정한다.
+- **SPA 새로고침**: Static Site에 `/*` → `/index.html` **Rewrite** 규칙을 대시보드에서 설정해야 한다(라우터가 history 모드).
+영향 문서: 01, 03, 07, CLAUDE.md, README.md
+
 ---
 
 ## 7. 문서에 기록만 하는 확장 항목 (구현하지 않음)
 
 - **그룹웨어 연동**: PoC에서는 엑셀/CSV 업로드로 대체. 추후 확장 시 업로드 입력부(`reports` 앱의 업로드 처리)를 대체/보완하는 형태로 검토.
 - **외부 AI API 연동**: 이번 범위 제외. 지표는 규칙 기반 계산만.
-- **배포**: 나중에 별도 진행.
+- **배포**: Render 배포 준비는 A-52. 그 외 배포 방식·CI/CD는 범위 밖.

@@ -5,7 +5,7 @@
 
 ## 1. 공통 규약 [A-45]
 
-- Base URL: `/api/` (개발 중 Vite 프록시 경유 [A-39])
+- Base URL: `/api/` (개발 중 Vite 프록시 경유 [A-39]). 운영(Render)에서는 프런트가 `VITE_API_BASE_URL` + `/api/`로 직접 호출하며 서버가 CORS를 허용한다(`Authorization` 헤더 사용, `Content-Disposition` 노출) [A-52]
 - 요청/응답: `application/json` (업로드만 `multipart/form-data`, 다운로드만 `text/csv`)
 - 인증: `Authorization: Token <key>` [A-12]. 로그인 API 외 모두 인증 필요
 - 페이지네이션 없음. 목록은 배열로 반환

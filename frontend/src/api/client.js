@@ -1,6 +1,7 @@
 import { session, clearSession } from '../auth'
 
-const BASE_URL = '/api'
+// 개발은 Vite 프록시(/api)를 쓴다. 운영(Render)은 API 서버가 다른 주소이므로 빌드 시 VITE_API_BASE_URL 로 지정한다 [A-39, A-52]
+const BASE_URL = `${(import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')}/api`
 
 let onUnauthorized = () => {}
 

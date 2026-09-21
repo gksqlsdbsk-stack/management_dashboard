@@ -8,7 +8,7 @@
 
 - 사용자: 직원(부서 담당자) / 관리자(대표자)
 - 지표는 입력 데이터로 **규칙 기반 자동 계산** (외부 AI API 없음)
-- **PoC 범위 밖**: 그룹웨어 연동(엑셀/CSV 업로드로 대체), 외부 AI API 연동, 배포
+- **PoC 범위 밖**: 그룹웨어 연동(엑셀/CSV 업로드로 대체), 외부 AI API 연동, Render 이외의 배포 방식·CI/CD (Render 배포 준비는 A-52·Phase 8 범위만)
 
 ## 2. 문서 규칙 (가장 중요)
 
@@ -33,12 +33,12 @@ Vue.js SPA  ──HTTP/JSON──>  Django REST Framework  ──Django ORM─�
 | 영역 | 사용 |
 |---|---|
 | Frontend | Vue.js 3, Vite, Bootstrap 5.0(**CSS만**), HTML5, CSS3, SPA, Chart.js, Vue Router |
-| Backend | Python 3, Django, Django ORM, Django REST Framework, REST/JSON API, openpyxl(엑셀 업로드) |
+| Backend | Python 3, Django, Django ORM, Django REST Framework, REST/JSON API, openpyxl(엑셀 업로드), gunicorn·django-cors-headers(운영, A-52) |
 | Database | PostgreSQL (로컬 Postgres.app, 포트 5432) |
 | 인증 | DRF TokenAuthentication |
 | 사용자 모델 | `AbstractUser` 상속(`accounts.User`, `role`로 직원/관리자 구분) |
 
-버전과 보조 결정(psycopg 3, Vue Router, fetch 사용, Pinia/axios 미사용, Vite 프록시 등)은 `specs/99-assumptions.md` §6 (A-37 ~ A-42)을 따른다. 위 표에 없는 라이브러리는 추가하지 않는다.
+버전과 보조 결정(psycopg 3, Vue Router, fetch 사용, Pinia/axios 미사용, Vite 프록시 등)은 `specs/99-assumptions.md` §6 (A-37 ~ A-42)을, Render 운영 설정은 A-52를 따른다. 위 표에 없는 라이브러리는 추가하지 않는다.
 
 ## 4. 폴더 구조
 
@@ -145,6 +145,8 @@ cd frontend && npm run build
 **DB 환경변수 (기본값은 Postgres.app 로컬 설정)**
 `DB_NAME`(management_dashboard), `DB_USER`(로컬 OS 사용자), `DB_PASSWORD`(없음), `DB_HOST`(localhost), `DB_PORT`(5432)
 
+운영(Render) 환경변수(`DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `DEFAULT_ADMIN_PASSWORD`, 프런트 `VITE_API_BASE_URL`)는 로컬 개발에는 필요 없으며 README의 “Render 배포”에 정리했다 [A-52].
+
 ## 7. 작업 흐름 (Phase 진행 시)
 
 1. `specs/07-phases.md`에서 현재 Phase의 작업 항목·완료 기준 확인
@@ -156,7 +158,7 @@ cd frontend && npm run build
 
 ## 8. 하지 말 것
 
-- 그룹웨어 연동, 외부 AI API 연동, 배포 관련 작업
+- 그룹웨어 연동, 외부 AI API 연동, Render 이외의 배포 방식·CI/CD 구성 (Render 배포 준비는 A-52 범위만)
 - 요구 사항에 없는 기능(알림, 결재, 감사 로그, 다국어, 비밀번호 분실 찾기, .xlsx 다운로드, 업로드 템플릿 다운로드 등)
 - 99에 기록하지 않은 임의의 상수·공식·부서/항목
 - 스펙을 바꾸지 않고 API 응답 형태·필드명을 바꾸는 것

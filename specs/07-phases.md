@@ -2,7 +2,7 @@
 
 > 각 Phase는 **작동하는 상태로 끝나야** 한다. Phase를 마치면 (1) 완료 기준 확인 → (2) README의 진행 현황 갱신 → (3) 변경된 스펙 반영 순서로 마무리한다.
 > 이 문서의 체크박스는 Phase 진행 중 Claude가 갱신한다. `[A-xx]`는 `99-assumptions.md` 참조.
-> **현재 상태: Phase 1~7 모두 완료 (PoC 구현 끝)**
+> **현재 상태: Phase 1~7 모두 완료 (PoC 구현 끝). Phase 8(Render 배포 준비) 구현 완료 (실제 배포는 사용자 진행)**
 
 | Phase | 주제 | 결과물 |
 |---|---|---|
@@ -13,6 +13,7 @@
 | 5 | 입력 현황 · 연간 목표 | 미제출 모니터링, 상세 조회, 목표 설정 |
 | 6 | 지표 계산 · 대시보드/리포트 | 8개 분석 항목, 차트, 월별 리포트 |
 | 7 | 다운로드 · 마무리 | CSV 다운로드, 전체 점검, 문서 정리 |
+| 8 | 배포 준비 (Render) | 운영 설정, CORS, gunicorn, 프런트 API 주소, 배포 안내 |
 
 ---
 
@@ -141,8 +142,26 @@
 - 전 Phase의 완료 기준이 유지된다 (`python manage.py test` 전체 통과, `npm run build` 성공)
 - README의 실행 방법대로 새 환경에서 기동된다
 
+## Phase 8. 배포 준비 (Render) [A-52]
+
+**목표**: 백엔드(Web Service)·Postgres·프런트(Static Site)를 Render에 올릴 수 있도록 코드와 안내를 준비한다. 사용자 요청으로 추가된 Phase이며, 실제 배포와 Render 대시보드 설정은 사용자가 한다.
+
+- [x] 스펙: 99 A-52, 01 §6, 03 §1, CLAUDE.md의 배포 관련 문구 갱신
+- [x] 백엔드 운영 설정: 환경변수(`SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, `DATABASE_URL`), CORS(`CORS_ALLOWED_ORIGINS`, `Content-Disposition` 노출), 프록시 SSL 헤더, 콘솔 로깅
+- [x] `requirements.txt`에 `gunicorn`, `django-cors-headers` 추가
+- [x] 초기 관리자 비밀번호 환경변수(`DEFAULT_ADMIN_PASSWORD`)
+- [x] 프런트 API 주소: 빌드 시 `VITE_API_BASE_URL`
+- [x] README에 Render 배포 절차와 대시보드에서 설정할 값 정리
+- [x] 로컬에서 운영 모드(gunicorn, `DEBUG=false`, `DATABASE_URL`, CORS)로 검증
+
+**완료 기준**
+- 환경변수 없이 로컬 개발(`runserver`, `npm run dev`)이 기존과 똑같이 동작한다
+- `DEBUG=false`에서 `SECRET_KEY`·`ALLOWED_HOSTS`가 없으면 시작 단계에서 분명한 오류로 멈춘다
+- gunicorn으로 로그인·API·CSV 다운로드가 동작하고, 허용한 프런트 오리진에만 CORS 헤더가 붙는다
+- `python manage.py test` 전체 통과, `npm run build` 성공(`VITE_API_BASE_URL` 유무 모두)
+
 ---
 
 ## 범위 밖 (모든 Phase 공통)
 
-배포, 그룹웨어 연동, 외부 AI API 연동, 명시되지 않은 기능 추가 [01 §6].
+Render 이외의 배포 방식·CI/CD, 그룹웨어 연동, 외부 AI API 연동, 명시되지 않은 기능 추가 [01 §6].

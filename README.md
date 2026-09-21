@@ -18,6 +18,7 @@
 | 5 | 입력 현황 · 연간 목표 | ✅ 완료 |
 | 6 | 지표 계산 · 대시보드/월별 리포트 | ✅ 완료 |
 | 7 | 다운로드 · 마무리 | ✅ 완료 |
+| 8 | 배포 준비 (Render) | ✅ 코드·안내 준비 완료 (로컬 운영 모드 검증. 실제 Render 배포는 아직 하지 않음) |
 
 세부 작업과 완료 기준은 [specs/07-phases.md](specs/07-phases.md)를 봅니다.
 
@@ -36,7 +37,7 @@
 - 누적 대시보드와 월별 리포트: 종합·프로젝트별 원가/이익률, 매입·매출·미수금, 3~6개월 자금 수지 예측, 손익분기점(BEP) 달성률, 생산량·가동률, 수주 잔고·영업 파이프라인, 인당 생산성, 목표 대비 달성률
 - 대시보드/리포트 데이터 CSV 다운로드
 
-**범위 제외 (PoC)**: 그룹웨어 연동(엑셀/CSV 업로드로 대체, 추후 확장 항목), 외부 AI API 연동, 배포
+**범위 제외 (PoC)**: 그룹웨어 연동(엑셀/CSV 업로드로 대체, 추후 확장 항목), 외부 AI API 연동, Render 이외의 배포 방식·CI/CD (Render 배포 준비는 아래 [Render 배포](#render-배포))
 
 ## 기술 스택
 
@@ -121,7 +122,7 @@ npm run dev
 - `migrate` 시 초기 부서 4개(영업, 생산, 구매/자재, 경영지원)와 입력 항목 19개가 1회 등록됩니다. 이후 관리자 화면에서 수정·삭제할 수 있고 서버를 다시 시작해도 재생성되지 않습니다.
 - 기본 관리자(ADMIN / ADMIN / admin1234!)는 서버 시작 시 자동 생성되며, `migrate`가 끝난 뒤 `runserver`를 실행하면 만들어집니다.
 
-DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)로 바꿀 수 있으며, 기본값은 Postgres.app 로컬 설정입니다.
+DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`)로 바꿀 수 있으며, 기본값은 Postgres.app 로컬 설정입니다. `DATABASE_URL`이 있으면 그것이 우선합니다(운영). 환경변수 없이 실행하는 로컬 개발 동작은 변하지 않습니다.
 
 ## 사용성 점검 메모 (취합 시간 단축 목표)
 
@@ -143,15 +144,86 @@ DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PO
 
 **시범 운영 때 재 볼 것(제안)**: 부서별 입력~제출 소요 시간, 화면 입력 대 업로드 비율, 업로드 오류 건수, 되돌리기 횟수, 마감 후 관리자가 지표를 확인하기까지 걸린 시간.
 
+## Render 배포
+
+백엔드는 **Render Web Service(Python)**, 데이터베이스는 **Render Postgres**, 프런트엔드는 **Render Static Site**에 올립니다. 세 곳의 주소가 서로 달라서 프런트는 빌드 시 받은 `VITE_API_BASE_URL`로 API를 직접 호출하고, 백엔드는 CORS로 프런트 주소만 허용합니다(개발은 종전대로 Vite 프록시). 세부 결정은 [specs/99-assumptions.md](specs/99-assumptions.md)의 A-52입니다.
+
+### 코드에서 준비된 것
+- `backend/requirements.txt`에 `gunicorn`(운영 서버)과 `django-cors-headers`(CORS)를 추가했습니다. 정적 파일은 없으므로(JSON API 전용, Django admin 없음) `collectstatic`이나 whitenoise는 쓰지 않습니다.
+- `config/settings.py`가 환경변수(`DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`)를 읽습니다. `DEBUG=false`인데 `SECRET_KEY`나 허용 호스트가 없으면 서버가 **시작 단계에서 분명한 오류로 멈춥니다**. Render가 자동으로 넣어 주는 `RENDER_EXTERNAL_HOSTNAME`은 허용 호스트에 자동으로 포함됩니다.
+- 초기 관리자 비밀번호를 `DEFAULT_ADMIN_PASSWORD`로 지정할 수 있습니다(공개 저장소에 적힌 `admin1234!`를 운영에 쓰지 않기 위해서입니다).
+- 프런트가 CSV 파일명을 읽도록 CORS로 `Content-Disposition`을 노출하고, 운영에서 오류가 Render 로그에 남도록 콘솔 로깅을 설정했습니다.
+- 프런트는 빌드 시 `VITE_API_BASE_URL`(끝의 `/`는 무시)이 있으면 `<값>/api`를, 없으면 `/api`(개발 프록시)를 호출합니다.
+
+### Render 대시보드에서 직접 설정할 값
+
+**1) PostgreSQL** (New → PostgreSQL)
+
+| 항목 | 값 |
+|---|---|
+| Name / Database / User | 자유(예: `management-dashboard-db`) |
+| Region | **Web Service와 같은 리전** (내부 주소로 연결하려면 같아야 합니다) |
+| 생성 후 복사할 것 | **Internal Database URL** (`postgresql://…@dpg-…/…`) |
+
+**2) Web Service** (New → Web Service → 저장소 연결)
+
+| 항목 | 값 |
+|---|---|
+| Name | 자유(예: `management-dashboard-api`) → 주소 `https://<이름>.onrender.com` |
+| Language / Branch | Python 3 / `main` |
+| Region | DB와 같은 리전 |
+| Root Directory | `backend` |
+| Build Command | `pip install -r requirements.txt && python manage.py migrate` |
+| Start Command | `gunicorn config.wsgi:application` |
+| Health Check Path | **비워 둡니다** (공개 200 응답 경로가 없어 지정하면 실패로 판단될 수 있습니다) |
+
+Environment Variables:
+
+| 키 | 값 |
+|---|---|
+| `PYTHON_VERSION` | Render가 지원하는 Python 3.12 이상 전체 버전(예: `3.13.5`). 로컬은 3.14로 확인했습니다 |
+| `DEBUG` | `false` |
+| `SECRET_KEY` | 추측할 수 없는 긴 임의 문자열(Render의 Generate 기능 사용 가능) |
+| `DATABASE_URL` | 위에서 복사한 **Internal Database URL** |
+| `CORS_ALLOWED_ORIGINS` | Static Site 주소 `https://<프런트 이름>.onrender.com` (여러 개면 쉼표, 경로 없이) |
+| `DEFAULT_ADMIN_PASSWORD` | 초기 관리자(ADMIN)의 강한 비밀번호. 관리자가 없을 때 **처음 한 번만** 쓰이며 이후 값을 바꿔도 기존 비밀번호는 바뀌지 않습니다 |
+| `ALLOWED_HOSTS` | (선택) 사용자 지정 도메인을 쓸 때만 쉼표로 추가. `onrender.com` 주소는 자동 포함 |
+
+**3) Static Site** (New → Static Site → 같은 저장소)
+
+| 항목 | 값 |
+|---|---|
+| Branch | `main` |
+| Root Directory | `frontend` |
+| Build Command | `npm ci && npm run build` |
+| Publish Directory | `dist` |
+| Environment `VITE_API_BASE_URL` | Web Service 주소 `https://<백엔드 이름>.onrender.com` (**`/api`는 붙이지 않음**) |
+| Environment `NODE_VERSION` | `22.12.0` 이상 (Vite가 Node 20.19 이상 또는 22.12 이상을 요구합니다) |
+| Redirects/Rewrites | Source `/*` → Destination `/index.html`, Action **Rewrite** (없으면 `/admin/dashboard` 등을 새로고침·직접 접속할 때 404) |
+
+### 진행 순서
+1. PostgreSQL 생성 → Internal Database URL 복사
+2. Web Service 생성(위 값 입력). 프런트 주소를 아직 모르면 이름을 미리 정하거나, 배포 후 `CORS_ALLOWED_ORIGINS`를 채워 다시 배포합니다
+3. Static Site 생성(`VITE_API_BASE_URL`에 Web Service 주소) → 생성된 프런트 주소를 Web Service의 `CORS_ALLOWED_ORIGINS`에 넣고 백엔드 재배포
+4. 프런트 주소에 접속해 `ADMIN` / `ADMIN` / (`DEFAULT_ADMIN_PASSWORD`)로 로그인하고 비밀번호를 바꾼 뒤 사용자를 등록합니다
+5. `VITE_*` 값은 **빌드 시점에 번들에 들어가므로**, 바꾸면 프런트를 다시 빌드·배포해야 합니다
+
+### 운영 시 참고
+- 마이그레이션은 배포 때마다 빌드 명령에서 실행됩니다(이미 적용된 것은 건너뜀). 초기 부서·입력 항목(부서 4개, 항목 19개)은 첫 마이그레이션에서 한 번만 들어갑니다.
+- 기본 gunicorn 설정(워커 1개)으로 시작합니다. 인스턴스 메모리에 여유가 있으면 Start Command에 `--workers 2`를 붙여 볼 수 있습니다.
+- `python manage.py check --deploy`의 경고 4개(XFrameOptions, CSRF 미들웨어, HSTS, SSL 리다이렉트)는 의도한 것입니다: 쿠키·세션·화면 렌더링이 없는 토큰 인증 JSON API이고, HTTPS 종료와 리다이렉트는 Render가 합니다(A-52).
+- 요금제별 제한(무료 인스턴스의 유휴 슬립·첫 요청 지연, 무료 DB의 보존 기간, 백업 등)은 Render 대시보드의 현재 정책을 확인하세요. 이 저장소는 백업·모니터링을 구성하지 않습니다.
+- 운영 모드를 로컬에서 시험하려면(임시 DB에서): `DEBUG=false SECRET_KEY=… ALLOWED_HOSTS=127.0.0.1 DATABASE_URL=postgresql://<사용자>@localhost:5432/<DB> CORS_ALLOWED_ORIGINS=http://localhost:5173 PORT=9000 gunicorn config.wsgi:application`
+
 ## 알려진 제한 사항
 
 **범위 밖(만들지 않음)**
-- 배포(개발 서버·`DEBUG=True`·개발용 `SECRET_KEY`), 그룹웨어 연동(엑셀/CSV 업로드로 대체), 외부 AI API 연동
+- Render 이외의 배포 방식·CI/CD·도메인 설정, 그룹웨어 연동(엑셀/CSV 업로드로 대체), 외부 AI API 연동
 - 알림, 결재, 감사 로그, 다국어, 비밀번호 분실 찾기, `.xlsx` 다운로드, 업로드 양식 다운로드
 
 **동작상 제한**
 - 같은 부서 직원이 동시에 저장하면 **마지막 저장이 반영**됩니다(동시 편집 충돌 방지 없음, A-11).
-- 인증 토큰은 만료되지 않고, 비밀번호는 관리자가 재설정하는 방식만 있습니다(본인 변경 불가). 기본 관리자(ADMIN / admin1234!)의 초기 비밀번호는 반드시 바꾸세요.
+- 인증 토큰은 만료되지 않고, 비밀번호는 관리자가 재설정하는 방식만 있습니다(본인 변경 불가). 기본 관리자(ADMIN / admin1234!)의 초기 비밀번호는 반드시 바꾸세요(운영에서는 `DEFAULT_ADMIN_PASSWORD` 환경변수로 처음부터 다른 값을 지정).
 - 마지막 남은 관리자의 **삭제**는 막지만, 마지막 관리자를 직원으로 바꾸거나 비활성화하는 것은 막지 않습니다. 이 경우 서버를 다시 시작하면 기본 관리자가 다시 만들어집니다(사번 `ADMIN`이 이미 쓰이고 있으면 만들어지지 않음).
 - 지표는 **제출 완료 보고서만** 집계하며, 임시 저장 데이터는 제외됩니다. 미제출 경고는 기준 월 기준입니다. 삭제한 부서의 과거 제출 데이터는 계속 집계됩니다.
 - 자금 수지 예측은 최근 3개월(제출된 달만) 평균 유입·유출이 예측 기간 내내 같다고 가정한 **단순 추정**입니다.
@@ -188,3 +260,4 @@ DB 접속은 환경변수(`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PO
 - 2026-09-21: Phase 5 구현 (`/status/`·`/status/matrix/`, 부서 보고서 상세 조회·제출 되돌리기, `AnnualGoal` 모델과 `/goals/` 조회·저장, `/admin/status`·`/admin/goals` 화면). 03 §6·§7에 정해지지 않은 세부 규칙을 99에 A-49로 기록하고 오류 코드 `report_not_submitted`를 03에 추가.
 - 2026-09-21: Phase 6 구현 (`analytics` 계산 모듈 `metrics.py`(순수 함수)·`queries.py`·`dashboard.py`, `GET /dashboard/`·`/monthly-report/`, `/admin/dashboard`(KPI·표·Chart.js 차트 9종)·`/admin/report`(당월/누적 표) 화면). 응답 스키마를 03 §8.1~8.4·05·99 A-50으로 먼저 확정.
 - 2026-09-21: Phase 7 구현 (`GET /dashboard/export/`·`/monthly-report/export/` UTF-8 BOM CSV, 두 화면의 `CSV 다운로드` 버튼, 화면·CSV 반올림 규칙 통일). CSV 세부 규칙을 05 §4·99 A-51로 먼저 확정. 전체 흐름 점검, 새 환경 기동 검증, 사용성 점검 메모와 알려진 제한 사항 정리.
+- 2026-09-21: Phase 8 배포 준비(Render). 환경변수 기반 운영 설정(`DEBUG`·`SECRET_KEY`·`ALLOWED_HOSTS`·`DATABASE_URL`), CORS(`django-cors-headers`), `gunicorn`, 콘솔 로깅, 초기 관리자 비밀번호 환경변수(`DEFAULT_ADMIN_PASSWORD`), 프런트 `VITE_API_BASE_URL`, Render 설정 값 안내. 스펙은 99 A-52로 먼저 기록.
