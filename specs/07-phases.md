@@ -2,7 +2,7 @@
 
 > 각 Phase는 **작동하는 상태로 끝나야** 한다. Phase를 마치면 (1) 완료 기준 확인 → (2) README의 진행 현황 갱신 → (3) 변경된 스펙 반영 순서로 마무리한다.
 > 이 문서의 체크박스는 Phase 진행 중 Claude가 갱신한다. `[A-xx]`는 `99-assumptions.md` 참조.
-> **현재 상태: Phase 4 완료, Phase 5 시작 전**
+> **현재 상태: Phase 5 완료, Phase 6 시작 전**
 
 | Phase | 주제 | 결과물 |
 |---|---|---|
@@ -95,10 +95,10 @@
 
 **목표**: 관리자가 제출 현황을 모니터링하고 목표를 설정한다.
 
-- [ ] `/status/`, `/status/matrix/`, 부서 보고서 상세 조회 API [03 §6]
-- [ ] (임시) 제출 되돌리기(reopen) [A-19]
-- [ ] `AnnualGoal` 모델, `/goals/` GET/PUT [03 §7]
-- [ ] 화면: `/admin/status`(요약·미제출 모니터링·현황표·상세), `/admin/goals`
+- [x] `/status/`, `/status/matrix/`, 부서 보고서 상세 조회 API [03 §6]
+- [x] (임시) 제출 되돌리기(reopen) [A-19]
+- [x] `AnnualGoal` 모델, `/goals/` GET/PUT [03 §7]
+- [x] 화면: `/admin/status`(요약·미제출 모니터링·현황표·상세), `/admin/goals`
 
 **완료 기준**
 - 월별 부서별 상태·진행률·미제출 부서가 정확히 표시된다

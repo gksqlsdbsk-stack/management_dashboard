@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers, status
 
 from config.exceptions import ApiError
+from config.numbers import MAX_YEAR, to_number
 from organization.models import InputItem
 
 from .models import PROJECT_NAME_MAX_LENGTH, MonthlyReport, ReportValue
@@ -36,14 +37,17 @@ def get_employee_department(user):
     return department
 
 
-def validate_period(year, month):
-    """연·월 검증. 현재(Asia/Seoul) 월 이하만 허용한다 [A-17]."""
+def validate_period(year, month, allow_future=False):
+    """연·월 검증. 직원은 현재(Asia/Seoul) 월 이하만 허용한다 [A-17].
+
+    관리자 조회는 미래 월도 허용한다(`allow_future=True`) [A-49].
+    """
     errors = {}
     if not 1 <= month <= 12:
         errors["month"] = ["월은 1~12 사이여야 합니다."]
-    if year < 1:
+    if not 1 <= year <= MAX_YEAR:
         errors["year"] = ["연도가 올바르지 않습니다."]
-    if not errors:
+    if not errors and not allow_future:
         today = timezone.localdate()
         if (year, month) > (today.year, today.month):
             errors["month"] = ["미래 월은 입력할 수 없습니다."]
@@ -74,11 +78,6 @@ def calculate_progress(required_item_ids, filled_item_ids):
 
 # ---- 응답 본문 ----
 
-def _number(value):
-    """Decimal → JSON number. 정수면 정수로 낸다."""
-    return int(value) if value == value.to_integral_value() else float(value)
-
-
 def build_report_payload(department, year, month, report):
     """GET/PUT/submit 공통 응답 본문 [03 §5]. 활성 항목만 대상으로 한다."""
     items = active_items(department)
@@ -106,7 +105,7 @@ def build_report_payload(department, year, month, report):
             for item in items
         ],
         "values": [
-            {"item_id": v.item_id, "project_name": v.project_name, "value": _number(v.value)} for v in values
+            {"item_id": v.item_id, "project_name": v.project_name, "value": to_number(v.value)} for v in values
         ],
     }
 
@@ -225,6 +224,23 @@ def apply_upload(department, year, month, parsed, items):
         ReportValue.objects.bulk_update(to_update, ["value"])
         report.save(update_fields=["updated_at"])
     return report, len(parsed)
+
+
+def reopen_report(department, year, month):
+    """(임시) 제출된 보고서를 DRAFT로 되돌린다. 값은 유지하고 제출 정보는 비운다 [A-19, A-49]."""
+    with transaction.atomic():
+        report = MonthlyReport.objects.select_for_update().filter(
+            department=department, year=year, month=month
+        ).first()
+        if report is None or report.status != MonthlyReport.Status.SUBMITTED:
+            raise ApiError(
+                status.HTTP_409_CONFLICT, "report_not_submitted", "제출된 보고서만 초안으로 되돌릴 수 있습니다."
+            )
+        report.status = MonthlyReport.Status.DRAFT
+        report.submitted_by = None
+        report.submitted_at = None
+        report.save()
+    return report
 
 
 def check_not_locked(report):

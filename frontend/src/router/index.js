@@ -4,6 +4,8 @@ import { fetchMe } from '../api/auth'
 import LoginView from '../views/LoginView.vue'
 import EntryView from '../views/EntryView.vue'
 import AdminDashboardView from '../views/AdminDashboardView.vue'
+import AdminStatusView from '../views/AdminStatusView.vue'
+import AdminGoalsView from '../views/AdminGoalsView.vue'
 import AdminUsersView from '../views/AdminUsersView.vue'
 import AdminDepartmentsView from '../views/AdminDepartmentsView.vue'
 
@@ -11,6 +13,8 @@ const routes = [
   { path: '/login', component: LoginView, meta: { public: true } },
   { path: '/entry', component: EntryView, meta: { role: 'EMPLOYEE' } },
   { path: '/admin/dashboard', component: AdminDashboardView, meta: { role: 'ADMIN' } },
+  { path: '/admin/status', component: AdminStatusView, meta: { role: 'ADMIN' } },
+  { path: '/admin/goals', component: AdminGoalsView, meta: { role: 'ADMIN' } },
   { path: '/admin/users', component: AdminUsersView, meta: { role: 'ADMIN' } },
   { path: '/admin/departments', component: AdminDepartmentsView, meta: { role: 'ADMIN' } },
   // `/` 포함 알 수 없는 경로는 로그인으로 보낸다. 로그인 상태면 가드가 역할별 홈으로 다시 보낸다.

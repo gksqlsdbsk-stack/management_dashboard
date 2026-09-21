@@ -31,6 +31,7 @@
 | 409 | `report_locked` | 제출된 보고서 수정/업로드 시도 [A-18] |
 | 409 | `department_in_use` | 소속 사용자가 있는 부서 삭제 [A-06] |
 | 409 | `cannot_delete_user` | 자기 자신/마지막 관리자 삭제 [A-15] |
+| 409 | `report_not_submitted` | 제출되지 않은(작성 중·미작성) 보고서를 초안으로 되돌리려 함 [A-19, A-49] |
 
 ### 1.2 권한 표기
 `관리자` = `ADMIN`만, `직원` = `EMPLOYEE`만, `인증` = 로그인한 누구나.
@@ -146,7 +147,7 @@
 | GET | `/status/?year=&month=` | 해당 월 요약 |
 | GET | `/status/matrix/?year=` | 연간 월 × 부서 현황표 |
 | GET | `/departments/{id}/report/{year}/{month}/` | 상세(입력값 조회). 응답 형태는 `/my-report/…` GET과 동일 |
-| POST | `/departments/{id}/report/{year}/{month}/reopen/` | (임시) `SUBMITTED` → `DRAFT` [A-19]. `DRAFT`/없음이면 409 |
+| POST | `/departments/{id}/report/{year}/{month}/reopen/` | (임시) `SUBMITTED` → `DRAFT` [A-19]. `DRAFT`/없음이면 409 `report_not_submitted`. 성공 시 200과 상세 본문 |
 
 `GET /status/`:
 ```json
@@ -163,6 +164,9 @@
 }
 ```
 `status`는 `NOT_STARTED | DRAFT | SUBMITTED`. `unsubmitted` = `SUBMITTED`가 아닌 부서명(미제출 모니터링).
+- 활성 부서만 대상이며 `sort_order` 순이다. `progress_percent`는 `SUBMITTED`이면 100, 그 외는 입력 규칙대로 계산한다. `submitted_percent`는 소수점 버림 [A-49].
+- 상세·되돌리기의 `{id}`가 없거나 삭제된 부서면 404. 되돌리면 `submitted_at`·`submitted_by`가 비워지고 값은 유지된다. 미래 월도 조회 가능(모두 `NOT_STARTED`) [A-49].
+- 관리자는 입력값을 조회만 한다. 상세 경로에 쓰기(PUT 등)는 없다 [A-22].
 
 `GET /status/matrix/`:
 ```json
@@ -170,7 +174,7 @@
   "months": [ { "month": 1, "statuses": { "1": "SUBMITTED", "2": "DRAFT" } } ] }
 ```
 
-## 7. 연간 목표 (관리자) [A-35]
+## 7. 연간 목표 (관리자) [A-35, A-49]
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
@@ -185,6 +189,8 @@
   { "metric_key": "PRODUCTION_QTY", "label": "생산량", "unit": "개", "target_value": null },
   { "metric_key": "ORDER_RECEIVED", "label": "신규 수주액", "unit": "원", "target_value": null } ] }
 ```
+- `GET`의 `year`는 필수. 지표는 항상 위 5개가 이 순서로 나온다.
+- `PUT` 요청: `{ "goals": [ { "metric_key": "REVENUE", "target_value": 1200000000 }, { "metric_key": "UTILIZATION", "target_value": null } ] }`. 본문에 없는 지표는 그대로 두고 `null`만 삭제한다. 알 수 없는 `metric_key`·중복·음수·숫자가 아닌 값은 400이며 전체가 저장되지 않는다. 응답은 위 `GET` 본문이다.
 
 ## 8. 대시보드 · 월별 리포트 · 다운로드 (관리자) [FR-A07 ~ A09]
 

@@ -1,9 +1,11 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsEmployee
+from accounts.permissions import IsAdmin, IsEmployee
 from config.exceptions import ApiError
+from organization.models import Department
 
 from . import services, upload
 
@@ -72,3 +74,31 @@ class MyReportUploadView(APIView):
 
 def upload_error(detail, rows=None):
     return ApiError(status.HTTP_400_BAD_REQUEST, "upload_invalid", detail, {"rows": rows or []})
+
+
+def _active_department(department_id):
+    return get_object_or_404(Department, pk=department_id, is_active=True)
+
+
+class DepartmentReportView(APIView):
+    """`GET /departments/{id}/report/{year}/{month}/` — 부서 입력값 조회(관리자, 읽기 전용) [A-22]."""
+
+    permission_classes = [IsAdmin]
+
+    def get(self, request, department_id, year, month):
+        department = _active_department(department_id)
+        services.validate_period(year, month, allow_future=True)
+        report = services.find_report(department, year, month)
+        return Response(services.build_report_payload(department, year, month, report))
+
+
+class DepartmentReportReopenView(APIView):
+    """`POST /departments/{id}/report/{year}/{month}/reopen/` — (임시) 제출 → 초안 [A-19]."""
+
+    permission_classes = [IsAdmin]
+
+    def post(self, request, department_id, year, month):
+        department = _active_department(department_id)
+        services.validate_period(year, month, allow_future=True)
+        report = services.reopen_report(department, year, month)
+        return Response(services.build_report_payload(department, year, month, report))
